@@ -10,9 +10,24 @@ function awk_getfiledir(_ret) {
   return _ret;
 }
 
-function print_error(title, msg) {
-  global_errorCount++;
-  print "\33[1;31m" title "!\33[m " msg > "/dev/stderr";
+function print_error(section, msg, is_warning, _header) {
+  if (!is_warning) {
+    global_errorCount++;
+    _header = "error";
+  } else {
+    if (is_warning == "fatal") {
+      global_errorCount++;
+      _header = "fatal";
+    } else if (is_warning == "debug") {
+      _header = "debug";
+    } else {
+      _header = "warning";
+    }
+  }
+
+  if (section != "")
+    _header = _header "(" section ")";
+  print "\33[1;31mmwgpp: " _header ":\33[m " msg > "/dev/stderr";
 }
 
 function trim(text) {
@@ -189,7 +204,7 @@ function ev1scan_scan(expression, words, _wlen, _i, _len, _c, _t, _w) {
       _w = _c;
       while (_i + 1 < _len) {
         _c = substr(expression, _i + 2, 1);
-        #print "dbg: ev_db_op[" _w _c "] = " ev_db_operator[_w _c] > "/dev/stderr"
+        #print_error("eval_expr", "ev_db_op[" _w _c "] = " ev_db_operator[_w _c], "debug");
         if (ev_db_operator[_w _c] != "") {
           _w = _w _c;
           _i++;
@@ -220,7 +235,7 @@ function ev1scan_scan(expression, words, _wlen, _i, _len, _c, _t, _w) {
         if (_c  == "\"") {
           break;
         } else if (_c == "\\") {
-          #print_error("dbg: (escchar = " _c " " substr(expression, _i + 2, 1) ")" );
+          #print_error("eval_expr", "(escchar = " _c " " substr(expression, _i + 2, 1) ")", "debug");
           if (_i + 1 < _len) {
             _w = _w ev1scan_scan_escchar(substr(expression, _i + 2, 1));
             _i++;
@@ -234,7 +249,7 @@ function ev1scan_scan(expression, words, _wlen, _i, _len, _c, _t, _w) {
     } else if (_c ~ /[[:blank:]]/) {
       continue; # ignore blank
     } else {
-      print_error("mwg_pp.eval_expr", "unrecognizable character '" _c "'");
+      print_error("eval_expr", "unrecognizable character '" _c "'");
       continue; # ignore unknown character
     }
 
@@ -245,7 +260,7 @@ function ev1scan_scan(expression, words, _wlen, _i, _len, _c, _t, _w) {
 
   # debug
   #for (_i = 0; _i < _wlen; _i++) {
-  #    print "yield " words[_i, "w"] " as " words[_i, "t"] > "/dev/stderr"
+  #  print_error("eval_expr", "yield " words[_i, "w"] " as " words[_i, "t"], "debug");
   #}
 
   return _wlen;
@@ -326,7 +341,7 @@ function ev2_expr(expression, _wlen, _words, _i, _len, _t, _w, _v, _sp, _s, _sp1
             else if (_w == "--")
               d_data[_s[_sp, "R"]]--;
             else
-              print_error("mwg_pp.eval", "unknown increment operator " _w);
+              print_error("eval", "unknown increment operator " _w);
 
             _s[_sp, "M"] = MOD_NUL;
             delete _s[_sp, "R"];
@@ -337,13 +352,13 @@ function ev2_expr(expression, _wlen, _words, _i, _len, _t, _w, _v, _sp, _s, _sp1
           _t = "u"; # unary operator
         }
       } else {
-        print_error("mwg_pp.eval", "unknown operator " _w);
+        print_error("eval", "unknown operator " _w);
       }
 
       if (_t == "b") {
         #-- binary operator
         _l = ev_db_operator[_w, "a"];
-        #print "dbg: binary operator level = " _l > "/dev/stderr"
+        #print_error("eval", "binary operator level = " _l, "debug");
 
         # get lhs
         _sp = ev2_pop_value(_s, _sp, _l); # left assoc
@@ -386,7 +401,7 @@ function ev2_expr(expression, _wlen, _words, _i, _len, _t, _w, _v, _sp, _s, _sp1
 
       # parentheses
       if (!(_sp >= 0 && _s[_sp, "t"] == SE_MARK)) {
-        print_error("mwg_pp.eval: no matching open paren to " _w " in " expression);
+        print_error("eval", "no matching open paren to " _w " in " expression);
         continue;
       }
       _w = _s[_sp, "m"] _w;
@@ -398,7 +413,7 @@ function ev2_expr(expression, _wlen, _words, _i, _len, _t, _w, _v, _sp, _s, _sp1
         if (_w == "?:") {
           _sp = ev2_pop_value(_s, _sp, 3.0); # assoc_value_3
           _v = (_s[_sp] != 0 && _s[_sp] != "") ? "T" : "F";
-          #print_error("dbg: _s[_sp]=" _s[_sp] " _v=" _v);
+          #print_error("eval", "_s[_sp]=" _s[_sp] " _v=" _v, "debug");
 
           # last element
           _s[_sp] = _s[_sp1];
@@ -428,7 +443,7 @@ function ev2_expr(expression, _wlen, _words, _i, _len, _t, _w, _v, _sp, _s, _sp1
             # member function call
             ev2_memcall(_s, _sp, _s, _sp SUBSEP ATTR_MTH_OBJ, _s[_sp, ATTR_MTH_MEM], _s, _sp1);
           } else {
-            print "mwg_pp.eval: invalid function call " _s[_sp] " " _w " in " expression > "/dev/stderr"
+            print_error("eval", "invalid function call " _s[_sp] " " _w " in " expression, 1);
           }
         }
       } else {
@@ -461,7 +476,7 @@ function ev2_expr(expression, _wlen, _words, _i, _len, _t, _w, _v, _sp, _s, _sp1
       _s[_sp, "T"] = TYPE_STR;
       _s[_sp, "M"] = MOD_NUL;
     } else {
-      print_error("mwg_pp.eval:fatal", "unknown token type " _t);
+      print_error("eval", "unknown token type " _t, "fatal");
     }
   }
 
@@ -500,7 +515,7 @@ function ev2_pop_value(s, sp, assoc, rDict, rName, _vp, _value) {
 }
 
 function ev2_memget(dDict, dName, oDict, oName, memname) {
-  #print_error("mwg_pp.eval", "dbg: ev2_memget(memname=" memname ")");
+  #print_error("eval", "ev2_memget(memname=" memname ")", "debug");
 
   # embedded special member
   if (oDict[oName, "T"] == TYPE_STR) {
@@ -517,7 +532,7 @@ function ev2_memget(dDict, dName, oDict, oName, memname) {
       dDict[dName, "t"] = SE_VALU;
       dDict[dName, "T"] = TYPE_STR;
       dDict[dName, "M"] = MOD_MTH;
-      #print_error("mwg_pp.eval", "dbg: method = String#" memname);
+      #print_error("eval", "method = String#" memname, "debug");
       return;
     }
   } else {
@@ -532,7 +547,7 @@ function ev2_memget(dDict, dName, oDict, oName, memname) {
     dDict[dName, "M"] = MOD_REF;
     dDict[dName, ATTR_REF] = oDict[oName, ATTR_REF] SUBSEP memname;
   } else {
-    print_error("mwg.eval", "invalid member name '" memname "'");
+    print_error("eval", "invalid member name '" memname "'");
     dDict[dName] = "";
     dDict[dName, "t"] = SE_VALU;
     dDict[dName, "T"] = TYPE_STR;
@@ -543,7 +558,7 @@ function ev2_memget(dDict, dName, oDict, oName, memname) {
 }
 
 function ev2_memcall(dDict, dName, oDict, oName, memname, aDict, aName, _a, _i, _c, _result, _resultT) {
-  #print_error("mwg_pp.eval", "dbg: ev2_memcall(memname=" memname ")");
+  #print_error("eval", "ev2_memcall(memname=" memname ")", "debug");
 
   _resultT = "";
 
@@ -581,7 +596,7 @@ function ev2_memcall(dDict, dName, oDict, oName, memname, aDict, aName, _a, _i, 
   #-----------------
   # write value
   if (_resultT == "") {
-    print_error("mwg.eval", "invalid member function name '" memname "'");
+    print_error("eval", "invalid member function name '" memname "'");
     _result = "";
     _resultT = TYPE_STR;
   }
@@ -674,7 +689,7 @@ function ev2_funcall(dDict, dName, funcname, aDict, aName, _a, _i, _c, _result, 
     close(_cmd);
     sub(/\n+$/, "", _result);
   } else {
-    print_error("mwg_pp.eval", "unknown function " funcname);
+    print_error("eval", "unknown function " funcname);
     _result = 0;
   }
 
@@ -703,7 +718,7 @@ function ev2_apply(stk, iPre, iVal, _pT, _pW, _lhs, _rhs, _lhsT, _rhsT, _result,
     _rhsT = stk[iVal, "T"];
     _resultT = TYPE_NUM;
 
-    #print "binary " _lhs " " _pW " " _rhs > "/dev/stderr"
+    #print_error("eval", "binary " _lhs " " _pW " " _rhs, "debug");
     if (_pW == "+") {
       if (_lhsT == TYPE_STR || _rhsT == TYPE_STR) {
         _result = _lhs _rhs;
@@ -831,7 +846,7 @@ function ev2_apply(stk, iPre, iVal, _pT, _pW, _lhs, _rhs, _lhsT, _rhsT, _result,
 function ev2_copy(dDict, dName, sDict, sName, _M, _t, _i, _iN) {
   # assertion
   if (sDict[sName, "t"] != SE_VALU) {
-    print_error("mwg_pp.eval:fatal", "copying not value element");
+    print_error("eval", "copying not value element", "fatal");
   }
 
   dDict[dName] = sDict[sName];                # value
@@ -861,7 +876,7 @@ function ev2_copy(dDict, dName, sDict, sName, _M, _t, _i, _iN) {
 
 function ev2_delete(sDict, sName) {
   if (sDict[sName, "t"] != SE_VALU) {
-    print_error("mwg_pp.eval:fatal", "deleting not value element");
+    print_error("eval", "deleting not value element", "fatal");
   }
 
   delete sDict[sName];     # value
@@ -913,7 +928,7 @@ function inline_expand(text, _, _ret, _ltext, _rtext, _mtext, _name, _r, _s, _a,
       _s["warn"] = slice(_name, RLENGTH);
       _r = "" d_data[_s["key"]];
       if (_r == "") {
-        print "(parameter expansion:" _mtext ")! " _s["warn"] > "/dev/stderr"
+        print_error("parameter expansion", "\x1b[36m"_mtext "\x1b[m: " _s["warn"], 1);
         _ltext = _ltext _mtext;
         _r = "";
       }
@@ -960,11 +975,11 @@ function inline_expand(text, _, _ret, _ltext, _rtext, _mtext, _name, _r, _s, _a,
       } else if (_s["func"] == "eval" && _s["argc"] == 1) {
         _r = inline_function_eval(_a);
       } else {
-        print "(parameter function:" _s["func"] ")! unrecognized function." > "/dev/stderr";
+        print_error("parameter function", "\x1b[36m" _s["func"] "\x1b[m: unrecognized function.", 1);
         _r = _mtext;
       }
     } else {
-      print "(parameter expansion:" _mtext ")! unrecognized expansion." > "/dev/stderr";
+      print_error("parameter expansion", "\x1b[36m" _mtext "\x1b[m: unrecognized expansion.", 1);
       _r = _mtext;
     }
 
@@ -1027,7 +1042,7 @@ function modify_text__replace(content, before, after, flags) {
   if (index(flags, "m")) {
     _jlen = split(content, _lines, "\n");
     content = modify_text__replace0(_lines[1], before, after, flags);
-    #print_error("mwg_pp(modify_text)", "replace('" _lines[1] "','" before "','" after "') = '" content "'");
+    #print_error("modify_text", "replace('" _lines[1] "','" before "','" after "') = '" content "'");
     for (_j = 1; _j < _jlen; _j++)
       content = content "\n" modify_text__replace0(_lines[_j + 1], before, after, flags);
   } else {
@@ -1161,7 +1176,7 @@ function range_end(args, _cmd, _arg, _txt, _clines, _cfiles) {
   _cmd = d_rstack[d_level, "c"];
   _arg = d_rstack[d_level, "a"];
   _txt = d_content[d_level];
-  if (m_lineno) { # 20120726
+  if (c_lineno) { # 20120726
     _clines = d_content[d_level, "L"];
     _cfiles = d_content[d_level, "F"];
   }
@@ -1173,7 +1188,7 @@ function range_end(args, _cmd, _arg, _txt, _clines, _cfiles) {
   # process
   if (_cmd == "define") {
     d_data[_arg] = _txt;
-    if (m_lineno) { # 20120726
+    if (c_lineno) { # 20120726
       d_data[_arg, "L"] = _clines;
       d_data[_arg, "F"] = _cfiles;
     }
@@ -1205,7 +1220,7 @@ function dctv_define(args, _, _cap, _name, _name2) {
     else
       d_data[_name] = d_data[_name2];
 
-    if (m_lineno) {
+    if (c_lineno) {
       d_data[_name, "L"] = d_data[_name2, "L"];
       d_data[_name, "F"] = d_data[_name2, "F"];
     }
@@ -1259,15 +1274,15 @@ function dctv_elif(cond, _cmd) {
     } else {
       range_begin("IF3");
       if (_cmd ~ /IF[34]/)
-        print_error("mwgpp:#%else", "if clause have already ended!");
+        print_error("#%else", "if clause have already ended!");
     }
   } else {
-    print_error("mwgpp:#%else", "no matching if directive");
+    print_error("#%else", "no matching if directive");
   }
 }
 function dctv_else(_, _cap, _cmd) {
   if (d_level == 0) {
-    print_error("mwgpp:#%else", "no matching if directive");
+    print_error("#%else", "no matching if directive");
     return;
   }
 
@@ -1279,10 +1294,10 @@ function dctv_else(_, _cap, _cmd) {
     } else {
       range_begin("IF3");
       if (_cmd ~ /IF[34]/)
-        print_error("mwgpp:#%else", "if clause have already ended!");
+        print_error("#%else", "if clause have already ended!");
     }
   } else {
-    print_error("mwgpp:#%else", "no matching if directive");
+    print_error("#%else", "no matching if directive");
   }
 }
 
@@ -1333,7 +1348,7 @@ function include_file(file, _line, _lines, _i, _n, _dir, _originalFile, _origina
   while ((_r = getline _line < file) >0)
     _lines[_n++] = _line;
   if (_r < 0)
-    print_error("could not open the include file '" file "'");
+    print_error("#%include", "could not open the include file '" file "'");
   close(file);
 
   dependency_add(file);
@@ -1350,7 +1365,7 @@ function include_file(file, _line, _lines, _i, _n, _dir, _originalFile, _origina
 }
 
 function dctv_error(message, _title) {
-  if (m_lineno_cfile != "" || m_lineno)
+  if (m_lineno_cfile != "" || c_lineno)
     _title = m_lineno_cfile ":" m_lineno_cline;
   else
     _title = FILENAME;
@@ -1397,7 +1412,7 @@ function data_define(pair, _sep, _i, _k, _v, _capt, _rex) {
 function data_print(key) {
   add_line(d_data[key]);
 }
-function execute(command, _line, _caps, _n, _cfile) {
+function execute(command, _line, _caps, _n, _cfile, _ret, _status) {
   if (match(command, /^(>>?)[[:blank:]]*([^[:blank:]]*)/, _caps) > 0) {
     # 出力先の変更
     fflush(m_outpath);
@@ -1408,9 +1423,16 @@ function execute(command, _line, _caps, _n, _cfile) {
     }
   } else {
     _n = 0;
-    while ((command | getline _line) > 0)
+    ERRNO = "";
+    while ((_ret = (command | getline _line)) > 0)
       _lines[_n++] = _line;
-    close(command);
+    _status = close(command);
+
+    if (_ret < 0) {
+      print_error("#%exec", "pipe(\x1b[36m" command "\x1b[m): " (ERRNO != "" ? ERRNO : "error"));
+    } else if (_status != 0) {
+      print_error("#%exec", "pipe(\x1b[36m" command "\x1b[m): command failed, exit = " _status, c_mwgpp_flags !~ /e/);
+    }
 
     _cfile = "$(" command ")";
     gsub(/[\\"]/, "\\\\&", _cfile);
@@ -1424,7 +1446,7 @@ function execute(command, _line, _caps, _n, _cfile) {
 #===============================================================================
 function add_line(line) {
   if (d_level == 0) {
-    if (m_lineno) { # 20120726
+    if (c_lineno) { # 20120726
       if (m_addline_cfile != m_lineno_cfile||++m_addline_cline != m_lineno_cline) {
         m_addline_cline = m_lineno_cline;
         m_addline_cfile = m_lineno_cfile;
@@ -1479,11 +1501,11 @@ function process_line(line, _line, _text, _ind, _len, _directive, _cap) {
 
   sub(/^[ \t]+/, "", _line);
   sub(/[ \t\r]+$/, "", _line);
-  if (m_comment_cpp)
+  if (c_comment_cpp)
     sub(/^\/\//, "#", _line);
-  if (m_comment_pragma)
+  if (c_comment_pragma)
     sub(/^[[:blank:]]*#[[:blank:]]*pragma/, "#", _line);
-  if (m_comment_c && match(_line, /^\/\*(.+)\*\/$/, _cap) > 0)
+  if (c_comment_c && match(_line, /^\/\*(.+)\*\/$/, _cap) > 0)
     _line = "#" _cap[1];
 
   if (_line ~ /^#%[^%]/) {
@@ -1495,7 +1517,7 @@ function process_line(line, _line, _text, _ind, _len, _directive, _cap) {
       _directive = _cap[1];
       _text = trim(_cap[2]);
     } else {
-      print_error("unrecognized directive line: " line);
+      print_error("directives", "unrecognized directive line: " line);
       return;
     }
 
@@ -1515,7 +1537,7 @@ function process_line(line, _line, _text, _ind, _len, _directive, _cap) {
     } else if (_directive == "elif") {
       dctv_elif(_text);
     } else if (_directive == "modify") { # obsoleted. use #%define name name.mods
-      print_error("obsoleted directive modify");
+      print_error("#%modify", "deprecated directive");
       dctv_modify(_text);
     } else if (_directive == "include" || _directive == "<") {
       include_file(_text);
@@ -1534,7 +1556,7 @@ function process_line(line, _line, _text, _ind, _len, _directive, _cap) {
     } else if (_directive == "error") {
       dctv_error(_text);
     } else {
-      print_error("unrecognized directive " _directive);
+      print_error("directives", "unrecognized directive " _directive);
     }
   } else if (_line ~ /^##+%/) {
     add_line(substr(_line, 2));
@@ -1552,11 +1574,12 @@ BEGIN{
   d_data[0] = "";
 
   m_outpath = "";
-  m_comment_c      = int(ENVIRON["PPC_C"]) != 0;
-  m_comment_cpp    = int(ENVIRON["PPC_CPP"]) != 0;
-  m_comment_pragma = int(ENVIRON["PPC_PRAGMA"]) != 0;
+  c_comment_c      = int(ENVIRON["PPC_C"]) != 0;
+  c_comment_cpp    = int(ENVIRON["PPC_CPP"]) != 0;
+  c_comment_pragma = int(ENVIRON["PPC_PRAGMA"]) != 0;
 
-  m_lineno         = int(ENVIRON["PPLINENO"]) != 0;
+  c_lineno         = int(ENVIRON["PPLINENO"]) != 0;
+  c_mwgpp_flags    = ENVIRON["MWGPP_FLAGS"];
 
   INCLUDE_DIRECTORY = ENVIRON["HOME"] "/.mwg/mwgpp/include"
 

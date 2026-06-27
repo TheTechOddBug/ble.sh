@@ -202,8 +202,8 @@
 - util (`ble/function#advice`): fix `-f` doing the opposite (reported by Funeralsawa) `#D2401` 801cc1c8
 - make: fix a race condition (reported by sanvila) `#2406` c92dddbe
 - syntax (completion-context): fix an infinite loop caused by nested braces (fixed by dlyongemallo) `#D2407` f38850cb
-- make: detect ./make_command.sh failure in `mwg_pp.awk` (reported by giggio, hibiday) `#D2415` xxxxxxxx
-- base: suppress error message in attempt at mkdir `$_ble_base/run` (reported by hibiday) `#D2414` xxxxxxxx
+- make: detect ./make_command.sh failure in `mwg_pp.awk` (reported by giggio, hibiday) `#D2415` 88266b9f
+- base: suppress error message in attempt at mkdir `$_ble_base/run` (reported by hibiday) `#D2414` 88266b9f xxxxxxxx
 
 ## Compatibility
 

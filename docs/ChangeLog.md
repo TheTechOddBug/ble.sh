@@ -202,6 +202,8 @@
 - util (`ble/function#advice`): fix `-f` doing the opposite (reported by Funeralsawa) `#D2401` 801cc1c8
 - make: fix a race condition (reported by sanvila) `#2406` c92dddbe
 - syntax (completion-context): fix an infinite loop caused by nested braces (fixed by dlyongemallo) `#D2407` f38850cb
+- make: detect ./make_command.sh failure in `mwg_pp.awk` (reported by giggio, hibiday) `#D2415` xxxxxxxx
+- base: suppress error message in attempt at mkdir `$_ble_base/run` (reported by hibiday) `#D2414` xxxxxxxx
 
 ## Compatibility
 
@@ -282,8 +284,8 @@
 - util (`ble/builtin/sleep`): support `sleep inf` (motivated by giggio) `#D2408` 9fa95f02
 - mandb: support the man-page sources compressed with .zst (motivated by HalFrgrd) `#D2410` 2c350270
 - mandb: adjust man page parsing for `ffmpeg` (reported by SuggonM) `#D2411` f0087189
-- canvas: work around Cygwin 3.6.0 pcon bug `#D2412` xxxxxxxx
-- term: use the kitty keyboard protocol in Ghostty and Zellij (reported by Okeanos, allpan3) `#D2413` xxxxxxxx
+- canvas: work around Cygwin 3.6.0 pcon bug `#D2412` bcea23c3
+- term: use the kitty keyboard protocol in Ghostty and Zellij (reported by Okeanos, allpan3) `#D2413` 6cffa910
 
 ## Contrib
 

@@ -1934,7 +1934,7 @@ function ble/base/initialize-runtime-directory/.tmp {
 function ble/base/initialize-runtime-directory/.base {
   local tmp_dir=$_ble_base/run
   if [[ ! -d $tmp_dir ]]; then
-    ble/bin/mkdir -p "$tmp_dir" || return 1
+    ble/bin/mkdir -p "$tmp_dir" 2>/dev/null || return 1
     ble/bin/chmod a+rwxt "$tmp_dir" || return 1
   fi
   ble/base/.create-user-directory _ble_base_run "$tmp_dir/${USER:-$UID}@$HOSTNAME"

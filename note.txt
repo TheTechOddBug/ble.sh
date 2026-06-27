@@ -8218,6 +8218,44 @@ bash_tips
     Done (実装ログ)
 -------------------------------------------------------------------------------
 
+2026-06-27
+
+  * make: nixpkgs で rebuild すると keyboard input ができなくなる (reported by giggio, hibiday) [#D2415]
+    https://github.com/NixOS/nixpkgs/issues/535733#issuecomment-4814979408
+    https://github.com/akinomyoga/ble.sh/issues/484
+
+    これは @hibiday の調査により mwg_pp.awk 経由の ./make_command.sh の呼び出し
+    に失敗していたのが原因と解明された。これにより init-cmap の hash が空になり、
+    未初期化の状態が正しい状態であると勘違いして cmap の初期化がスキップされて
+    しまう。nixpkgs の build environment では /usr/bin/env が存在しないというこ
+    とが原因なのではないかと思われる。既に GNUmakefile の方ではその様な環境に対
+    する対策として "bash ./make_command.sh" の形で呼び出す様にしている。一貫性
+    のため mwg_pp.awk 経由で ./make_command.sh を呼び出す時も "bash
+    ./make_command.sh" の形で呼び出すようにするべきだろう。
+
+    またその他の理由により hash 決定に失敗したのを検出する為に mwg_pp.awk %exec
+    で実行したコマンドが失敗した時に、生成自体を停止する機能を追加する事にした。
+    MWGPP_FLAGS=e という環境変数でこれを呼び出す様にする。
+
+  * main: $_ble_base が書き込みできない状況で $_ble_base_run 決定時にエラーメッセージ (reported by hibiday) [#D2414]
+
+    mkdir -p ... || return 1 だけだと mkdir がエラーメッセージを出力してしまう。
+    mkdir を試行する前にその親ディレクトリが書き込み可能である事を確認する様に
+    書き換える patch があったのでそれを取り込む。別のディレクトリについても類似
+    のチェックを入れる。
+
+    と思ったが、ディレクトリに -x がない場合にも失敗するし、或いは直上のディレ
+    クトリがなくて、何段階かのディレクトリが mkdir によって作られる場合にも対応
+    できていない。というか、問題は mkdir がエラーメッセージを出力するのがいけな
+    いのであって、mkdir が失敗する事自体は元から見越している。なので、単に
+    mkdir の stderr を /dev/null にリダイレクトするべきなのでは… → その様な方
+    針に変更した。
+
+    ble/base/initialize-{state,cache}-directory の中の同様の mkdir については、
+    ここの失敗は即座に ble.sh 初期化自体の停止に直結するので、敢えてエラーメッ
+    セージを隠すこともないだろう。寧ろ、原因が表示された方が良いので mkdir の
+    stderr はそのままにする。
+
 2026-06-21
 
   * term: ghostty 及び zellij で kitty_keyboard_protocol を優先する (reported by Okeanos, allpan3) [#D2413]

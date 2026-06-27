@@ -67,7 +67,8 @@ outfiles+=$(OUTDIR)/ble.sh
 # Note: ble.sh depends on lib/init-cmap.sh and lib/init-bind.sh
 # because it contains the hash of these files for the cache.
 $(OUTDIR)/ble.sh: ble.pp GNUmakefile lib/init-cmap.sh lib/init-bind.sh | $(OUTDIR)
-	DEPENDENCIES_PHONY=1 DEPENDENCIES_OUTPUT="$(@:%.sh=%.dep)" DEPENDENCIES_TARGET="$@" \
+	MWGPP_FLAGS=e \
+	  DEPENDENCIES_PHONY=1 DEPENDENCIES_OUTPUT="$(@:%.sh=%.dep)" DEPENDENCIES_TARGET="$@" \
 	  FULLVER=$(FULLVER) \
 	  BLE_GIT_COMMIT_ID="$(BLE_GIT_COMMIT_ID)" \
 	  BLE_GIT_BRANCH="$(BLE_GIT_BRANCH)" \

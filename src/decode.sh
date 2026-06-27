@@ -2833,7 +2833,7 @@ function ble/decode/cmap/initialize {
 
   local init=$_ble_base/lib/init-cmap.sh
   local dump=$_ble_base_cache/decode.cmap.$_ble_decode_kbd_ver.$TERM.dump
-#%$ echo "  local hash='$(./make_command.sh hash lib/init-cmap.sh)'"
+#%$ hash=$(bash ./make_command.sh hash lib/init-cmap.sh) && [[ $hash ]] && echo "  local hash='$hash'"
   if [[ -s $dump && $dump -nt $init ]]; then
     source -- "$dump"
     [[ $_ble_decode_cmap_cache_hash == "$hash" ]] && return 0

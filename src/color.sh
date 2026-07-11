@@ -16,22 +16,63 @@ _ble_color_gflags_DecorationMask=0x77
 # background colors, we keep the "TrueColor" bit (1-bit) and the color value
 # (24-bit).
 #
-# | TrueColor | Color value | Description              |
-# |-----------|-------------|--------------------------|
-# |         0 | 000000      | Color is unset           |
-# |         0 | 0000RR      | --Reserved-- (RR >= 1)   |
-# |         0 | 0001XX      | Indexed colors           |
-# |         0 | RRRRXX      | --Reserved-- (RRRR >= 2) |
-# |         1 | XXXXXX      | 24-bit colors            |
+# | TrueColor | Color value | Description              | color   |
+# |-----------|-------------|--------------------------|---------|
+# |         0 | 000000      | Color is unset           |      -1 |
+# |         0 | 0000RR      | --Reserved-- (RR >= 1)   |       - |
+# |         0 | 0001XX      | Indexed colors           | 00000XX |
+# |         0 | 00RRXX      | --Reserved-- (RR >= 2)   |       - |
+# |         0 | 01XXXX      | Alias colors             | 200XXXX |
+# |         0 | RRXXXX      | --Reserved-- (RR >= 2)   |       - |
+# |         1 | XXXXXX      | 24-bit colors            | 1XXXXXX |
 #
 _ble_color_gflags_FgMask=0x01000000FFFFFF00
 _ble_color_gflags_BgMask=0x02FFFFFF00000000
 _ble_color_gflags_FgShift=8
+_ble_color_gflags_FgShift2=32
 _ble_color_gflags_BgShift=32
+_ble_color_gflags_BgShift2=33
 _ble_color_gflags_FgTrueColor=0x0100000000000000
 _ble_color_gflags_BgTrueColor=0x0200000000000000
 _ble_color_gflags_FgIndexedColor=0x0000000000010000
 _ble_color_gflags_BgIndexedColor=0x0000010000000000
+
+function ble/color/.cflags2color {
+  local cflags=$1
+  if ((cflags&0x1000000)); then
+    # 24-bit colors: In this case, the representation in cflags and the color
+    # value matches.
+    ret=$cflags
+  elif (((cflags&~0xFF)==0x000100)); then
+    # index colors
+    ret=$((cflags&0xFF))
+  elif (((cflags&~0xFFFF)==0x010000)); then
+    # alias colors
+    ret=$((2<<24|cflags&0xFFFF))
+  else
+    ret=-1
+    return 1
+  fi
+  return 0
+}
+function ble/color/.color2cflags {
+  local ccode=$1
+  ret=0
+  if ((ccode<0)); then
+    return 0
+  elif ((ccode<0x1000000)); then
+    # index colors
+    ret=$((0x100|ccode&0xFF))
+  elif ((ccode<0x2000000)); then
+    # 24-bit colors
+    ret=$((1<<24|ccode&0xFFFFFF))
+  elif ((ccode<0x3000000)); then
+    if ((ccode<0x2010000)); then
+      # alias colors
+      ret=$((0x10000|ccode&0xFFFF))
+    fi
+  fi
+}
 
 _ble_color_index_colors_default=$_ble_term_colors
 if [[ $TERM == xterm* || $TERM == *-256color || $TERM == kterm* ]]; then
@@ -199,22 +240,13 @@ function ble/color/g2sgr/.impl {
   ((g&_ble_color_gflags_Revert))    && sgr="$sgr;${_ble_term_sgr_rev:-7}"
   ((g&_ble_color_gflags_Invisible)) && sgr="$sgr;${_ble_term_sgr_invis:-8}"
   ((g&_ble_color_gflags_Strike))    && sgr="$sgr;${_ble_term_sgr_strike:-9}"
-  if ((g&_ble_color_gflags_FgTrueColor)); then
-    local rgb=$((1<<24|g>>8&0xFFFFFF))
-    ble/color/.color2sgrfg "$rgb"
-    sgr="$sgr;$ret"
-  elif ((g&_ble_color_gflags_FgIndexedColor)); then
-    local fg=$((g>>8&0xFF))
-    ble/color/.color2sgrfg "$fg"
+
+  if ble/color/g#getfg "$g"; then
+    ble/color/.color2sgrfg "$ret"
     sgr="$sgr;$ret"
   fi
-  if ((g&_ble_color_gflags_BgTrueColor)); then
-    local rgb=$((1<<24|g>>32&0xFFFFFF))
-    ble/color/.color2sgrbg "$rgb"
-    sgr="$sgr;$ret"
-  elif ((g&_ble_color_gflags_BgIndexedColor)); then
-    local bg=$((g>>32&0xFF))
-    ble/color/.color2sgrbg "$bg"
+  if ble/color/g#getbg "$g"; then
+    ble/color/.color2sgrbg "$ret"
     sgr="$sgr;$ret"
   fi
 
@@ -240,21 +272,24 @@ function ble/color/g2sgr-ansi/.impl {
   ((g&_ble_color_gflags_Revert))    && sgr="$sgr;7"
   ((g&_ble_color_gflags_Invisible)) && sgr="$sgr;8"
   ((g&_ble_color_gflags_Strike))    && sgr="$sgr;9"
-  if ((g&_ble_color_gflags_FgTrueColor)); then
-    local rgb=$((1<<24|g>>8&0xFFFFFF))
-    local R=$((rgb>>16&0xFF)) G=$((rgb>>8&0xFF)) B=$((rgb&0xFF))
-    sgr="$sgr;38:2::$R:$G:$B"
-  elif ((g&_ble_color_gflags_FgIndexedColor)); then
-    local fg=$((g>>8&0xFF))
-    sgr="$sgr;38:5:$fg"
+
+  if ble/color/g#getfg "$g"; then
+    ble/color/alias/resolve "$ret"
+    if ((0<=ret&&ret<256)); then
+      sgr="$sgr;38:5:$ret"
+    elif ((0x1000000<=ret&&ret<0x2000000)); then
+      local R=$((ret>>16&0xFF)) G=$((ret>>8&0xFF)) B=$((ret&0xFF))
+      sgr="$sgr;38:2::$R:$G:$B"
+    fi
   fi
-  if ((g&_ble_color_gflags_BgTrueColor)); then
-    local rgb=$((1<<24|g>>32&0xFFFFFF))
-    local R=$((rgb>>16&0xFF)) G=$((rgb>>8&0xFF)) B=$((rgb&0xFF))
-    sgr="$sgr;48:2::$R:$G:$B"
-  elif ((g&_ble_color_gflags_BgIndexedColor)); then
-    local bg=$((g>>32&0xFF))
-    sgr="$sgr;48:5:$bg"
+  if ble/color/g#getbg "$g"; then
+    ble/color/alias/resolve "$ret"
+    if ((0<=ret&&ret<256)); then
+      sgr="$sgr;48:5:$ret"
+    elif ((0x1000000<=ret&&ret<0x2000000)); then
+      local R=$((ret>>16&0xFF)) G=$((ret>>8&0xFF)) B=$((ret&0xFF))
+      sgr="$sgr;48:2::$R:$G:$B"
+    fi
   fi
 
   ret=$'\e['$sgr'm'
@@ -316,24 +351,16 @@ function ble/color/g#setbg-cmyk {
   ble/color/g#setbg-rgb "$1" "$_ble_local_C" "$_ble_local_M" "$_ble_local_Y"
 }
 function ble/color/g#setfg {
-  local _ble_local_color=$2
-  if ((_ble_local_color<0)); then
-    ble/color/g#setfg-clear "$1"
-  elif ((_ble_local_color>=0x1000000)); then
-    (($1=$1&~_ble_color_gflags_FgMask|_ble_color_gflags_FgTrueColor|(_ble_local_color&0xFFFFFF)<<8)) # true color
-  else
-    ble/color/g#setfg-index "$1" "$_ble_local_color"
-  fi
+  [[ $2 == ret ]] || local ret
+  ble/color/.color2cflags "$2"
+  ret=$(((ret&0x1000000)<<_ble_color_gflags_FgShift2|(ret&0xFFFFFF)<<_ble_color_gflags_FgShift))
+  (($1=$1&~_ble_color_gflags_FgMask|ret))
 }
 function ble/color/g#setbg {
-  local _ble_local_color=$2
-  if ((_ble_local_color<0)); then
-    ble/color/g#setbg-clear "$1"
-  elif ((_ble_local_color>=0x1000000)); then
-    (($1=$1&~_ble_color_gflags_BgMask|_ble_color_gflags_BgTrueColor|(_ble_local_color&0xFFFFFF)<<32)) # true color
-  else
-    ble/color/g#setbg-index "$1" "$_ble_local_color"
-  fi
+  [[ $2 == ret ]] || local ret
+  ble/color/.color2cflags "$2"
+  ret=$(((ret&0x1000000)<<_ble_color_gflags_BgShift2|(ret&0xFFFFFF)<<_ble_color_gflags_BgShift))
+  (($1=$1&~_ble_color_gflags_BgMask|ret))
 }
 ## @fn ble/color/g#append g g2
 ##   g に描画属性 g2 を上書きします。
@@ -369,25 +396,22 @@ function ble/color/g.setbg-cmyk { ble/color/g#setbg-cmyk g "$@"; }
 function ble/color/g.append { ble/color/g#append g "$@"; }
 function ble/color/g.compose { ble/color/g#compose g "$@"; }
 
+## @fn ble/color/g#getfg g
+## @fn ble/color/g#getbg g
+##   Get the color code of foreground/background from the specified gflags
+##   value.
+##   @var[out] ret
+##   @exit 0 if any foreground color is set. Otherwise, 1 with "ret" being set
+##     to -1.
 function ble/color/g#getfg {
   local g=$1
-  if ((g&_ble_color_gflags_FgTrueColor)); then
-    ((ret=0x1000000|(g>>8&0xFFFFFF)))
-  elif ((g&_ble_color_gflags_FgIndexedColor)); then
-    ((ret=g>>8&0xFF))
-  else
-    ((ret=-1))
-  fi
+  local cflags=$((g>>_ble_color_gflags_FgShift2&0x1000000|g>>_ble_color_gflags_FgShift&0xFFFFFF))
+  ble/color/.cflags2color "$cflags"
 }
 function ble/color/g#getbg {
   local g=$1
-  if ((g&_ble_color_gflags_BgTrueColor)); then
-    ((ret=0x1000000|(g>>32&0xFFFFFF)))
-  elif ((g&_ble_color_gflags_BgIndexedColor)); then
-      ((ret=g>>32&0xFF))
-  else
-    ((ret=-1))
-  fi
+  local cflags=$((g>>_ble_color_gflags_BgShift2&0x1000000|g>>_ble_color_gflags_BgShift&0xFFFFFF))
+  ble/color/.cflags2color "$cflags"
 }
 function ble/color/g#compute-fg {
   local g=$1
@@ -439,22 +463,12 @@ function ble/color/gspec2g {
 ##   @var[out] ret
 function ble/color/g2gspec {
   local g=$1 gspec=
-  if ((g&_ble_color_gflags_FgTrueColor)); then
-    local rgb=$((1<<24|g>>8&0xFFFFFF))
-    ble/color/.color2name "$rgb"
-    gspec=$gspec,fg=$ret
-  elif ((g&_ble_color_gflags_FgIndexedColor)); then
-    local fg=$((g>>8&0xFF))
-    ble/color/.color2name "$fg"
+  if ble/color/g#getfg "$g"; then
+    ble/color/.color2name "$ret"
     gspec=$gspec,fg=$ret
   fi
-  if ((g&_ble_color_gflags_BgTrueColor)); then
-    local rgb=$((1<<24|g>>32&0xFFFFFF))
-    ble/color/.color2name "$rgb"
-    gspec=$gspec,bg=$ret
-  elif ((g&_ble_color_gflags_BgIndexedColor)); then
-    local bg=$((g>>32&0xFF))
-    ble/color/.color2name "$bg"
+  if ble/color/g#getbg "$g"; then
+    ble/color/.color2name "$ret"
     gspec=$gspec,bg=$ret
   fi
   ((g&_ble_color_gflags_Bold))      && gspec=$gspec,bold
@@ -592,6 +606,14 @@ function ble/color/.name2color {
     else
       ret=-1
     fi
+  elif [[ $colorName == %* ]]; then
+    local var=_ble_color_alias__${colorName#'%'}
+    local index=${!var-}
+    if [[ $index ]]; then
+      ret=$((2<<24|index))
+    else
+      ret=-1
+    fi
   else
     case $colorName in
     (black)   ret=0 ;;
@@ -619,12 +641,16 @@ function ble/color/.name2color {
   fi
 }
 function ble/color/.color2name {
-  if (($1>=0x1000000)); then
-    ble/util/sprintf ret '#%06x' "$(($1&0xFFFFFF))"
+  local ccode=$1
+  if ((0x1000000<=ccode&&ccode<0x2000000)); then
+    ble/util/sprintf ret '#%06x' "$((ccode&0xFFFFFF))"
+    return 0
+  elif ((0x2000000<=ccode&&ccode<0x2010000)); then
+    ret=%${_ble_color_alias_name[ccode&0xFFFF]}
     return 0
   fi
 
-  ((ret=(10#0$1&255)))
+  ((ret=(10#0$ccode&255)))
   case $ret in
   (0)  ret=black   ;;
   (1)  ret=brown   ;;
@@ -754,9 +780,16 @@ _ble_color_color2sgr_filter=
 ##   @param[in] color
 ##     0-255 の値は index color を表します。
 ##     1XXXXXX の値は 24bit color を表します。
+##     2XXXXXX の値は alias color を表します。
 ##   @var[out] ret
 function ble/color/.color2sgr-impl {
   local ccode=$1 prefix=$2 # 3 for fg, 4 for bg
+
+  # First resolve alias colors before applying colorglass or other color
+  # filters.
+  ble/color/alias/resolve "$ccode"
+  ccode=$ret
+
   builtin eval -- "$_ble_color_color2sgr_filter"
   if ((ccode<0)); then
     ret=${prefix}9
@@ -853,6 +886,47 @@ function ble/color/.color2sgrbg {
 }
 
 #------------------------------------------------------------------------------
+# alias colors
+
+# See also _ble_faces_count
+if [[ ! ${_ble_color_alias_count-} ]]; then
+  _ble_color_alias_count=0
+  _ble_color_alias_color=()
+  _ble_color_alias_name=()
+fi
+
+function ble/color/alias/set {
+  local name=$1 spec=$2
+  ble/util/assert '[[ $name =~ ^[_a-zA-Z0-9]+$ ]]' || return 2
+
+  local var=_ble_color_alias__$name
+  local index=${!var-}
+  if [[ ! $index ]]; then
+    ((index=_ble_color_alias_count++))
+    ble/util/assert '((index<0x10000))' "$FUNCNAME: The number of alias colors reached its upper limit (name=$name)" || return 1
+    _ble_color_alias_name[index]=$name
+    (($var=index))
+  fi
+
+  local ret
+  ble/color/.name2color "$spec"
+  _ble_color_alias_color[index]=$ret
+  ble/color/g2sgr/.clear-cache
+}
+
+## @fn ble/color/alias/resolve color
+##   @var[out] ret
+function ble/color/alias/resolve {
+  local loop=32 ccode=$1
+  while ((loop--&&0x2000000<=ccode&&ccode<0x2010000)); do
+    ((ccode=_ble_color_alias_color[ccode&0xFFFF]))
+  done
+  ble/util/assert '((loop))' "$FUNCNAME: color '%${_ble_color_alias_name[$1]}': resolution too deep"
+  ret=$ccode
+}
+
+#------------------------------------------------------------------------------
+# SGR
 
 ## @fn ble/color/read-sgrspec/.arg-next
 ##   @var[in    ] fields

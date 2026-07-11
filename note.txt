@@ -1926,6 +1926,10 @@ bash_tips
   - make_command.sh の整理 (scan 分離, char_width 分離)
   - note.txt -> memo.txt
 
+2026-07-11
+
+  * bleopt color_scheme が遅い。キャッシュ等の仕組みを整えるべきかもしれない。
+
 2026-05-31
 
   * msys: "[[: : integer expected" というエラーメッセージ
@@ -8217,6 +8221,68 @@ bash_tips
 *******************************************************************************
     Done (実装ログ)
 -------------------------------------------------------------------------------
+
+2026-07-11
+
+  * colorglass: base16.dat の更新 [#D2417]
+
+    * colorglass.base16.dat で Dracula の値が変だ　この値は
+      ble/contrib/colorglass/extract-base16-palette-from-iTerm2-Color-Schemes
+      で生成されたというコメントがあるが嘘である。実際には make/color.sample.sh
+      の sub:convert-iTerm2-palettes という関数で生成される物の気がする。
+
+    元の iTerm2-Color-Schemes を見ても Dracula の設定がそんなに変わった様な形跡
+    は見られない。一つ色が微妙に変更されたぐらいである。という事は元の生成スク
+    リプト自体にバグがあるという事になるのだろうか。取り敢えず palette の値につ
+    いて確認を行う。
+
+    iTerm2-Color-Schemes によると、
+
+    > fg=#f8f8f2
+    > bg=#282a36
+    > cursor=#f8f8f2
+    > palette;#ff5555;#50fa7b;#f1fa8c;#bd93f9;#ff79c6;#8be9fd;#f8f8f2;#6272a4;#ff6e6e;#69ff94;#ffffa5;#d6acff;#ff92df;#a4ffff;#ffffff
+
+    base16.dat によると
+
+    > fg bg cursor=0xf8f8f2 0x1e1f29 0xbbbbbb
+    > palette=0x000000 0xff5555 0x50fa7b 0xf1fa8c 0xbd93f9 0xff79c6 0x8be9fd 0xbbbbbb 0x555555 0xff5555 0x50fa7b 0xf1fa8c 0xbd93f9 0xff79c6 0x8be9fd 0xffffff
+
+    全く似ても似つかない色になっている。不思議である。うーん。然し、実際に手元
+    にあったext/iTerm2-Color-Schemes/xfce4terminal/Dracula.theme の中を覗いてみ
+    ると上記と同じ値になっている。
+
+    どうも https://github.com/mbadolato/iTerm2-Color-Schemes/pull/512 で大きく
+    変更された様である。取り敢えず更新して良い気がする。
+
+  * color: color alias の枠組みを整える [#D2416]
+
+    最初は face と同様に named color 一つ一つに通し数字を割り当てて、その数字を
+    変数 _ble_color_named__<name> に保持し、また対応する色は配列に格納する様に
+    しようとしたが、よく考えたら _ble_color_named__<name> に直接色を代入すれば
+    良い気がしたので、それで実装する事にした。
+
+    と思ったがそれだと全然駄目だった。それだと後になって scheme1 等の色を変更し
+    ても値が変更されないのであった。
+
+    * done: 色名は % で始める事にする。読み取り部分と出力部分を調整した。動作確
+      認: ble-face の出力を確認する → OK
+
+    * done: ちゃんと rosepine_{moon,dawn} で色が切り替わっている事を見る → 最
+      初色が変わっていない様な気がしたが、実際に出力を並べて比べてみたら微妙に
+      変わっている。ほぼ catppuccin_mocha と同じ配色で微妙に色が変わっている様
+      な変わっていない様な感じの scheme である。なので OK.
+
+      しかし、だとすると rosepine_{moon,dawn} はそもそも独立した scheme として
+      追加する価値があるのだろうか? 改めて色の表を比べて考察する必要がある。
+
+    * done: named は alias に改名するべきの気がする。役割や振る舞い的に。或いは
+      color variable にするべきか。alias だと即時展開の様にも思われてそれは期待
+      する振る舞いではない。
+
+    取り敢えず scheme 継承の用途で使っている物に関しては動いている様な気がする。
+
+    * done: wiki に color alias の記述を追加する。
 
 2026-06-27
 

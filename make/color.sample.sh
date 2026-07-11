@@ -648,7 +648,7 @@ function sub:convert-iTerm2-palettes {
       bg = "";
       cg = "";
     }
-  ' "$repo"/xfce4terminal/*.theme
+  ' "$repo"/xfce4terminal/*.theme | LANG=C.UTF-8 sort
 }
 
 function sub:convert-gogh-palettes {
@@ -656,7 +656,7 @@ function sub:convert-gogh-palettes {
   local themes_json=out/data/Gogh-Co.Gogh.themes.json
   mkd "${themes_json%/*}"
   wget "$url" -O "$themes_json"
-  node make/color.sample.gogh.js "$themes_json" | awk '
+  node make/color.sample.gogh.js "$themes_json" | LANG=C.UTF-8 sort | awk '
     mode == "existing" {
       if (/^# SECTION Gogh/) {
         g_existing_suppress = 1;
@@ -675,6 +675,10 @@ function sub:convert-gogh-palettes {
           print > "/dev/stderr";
       } else if (g_existing[$1]) {
         g_duplicate_count++;
+
+        # 2026-07-11 We decided to include also duplicate palettes for tracking
+        # the palette changes in each repository.
+        print;
       } else {
         print;
       }

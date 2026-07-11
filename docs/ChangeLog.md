@@ -93,6 +93,7 @@
 - complete: support `bleopt complete_auto_complete_opts=suppress-inside-{line,word}:syntax-suppress-{ambiguous,empty}` (requested by pallaswept) `#D2384` 2f564e63
 - util (`bleopt`, etc.): highlight shell quoting by backslash `#D2388` 7cf13879
 - complete: introduce more stages to ambiguous pathname completions (reported by xuhdev) `#D2397` abb93e21
+^ color: support color aliases `#D2416` xxxxxxxx
 
 ## Changes
 
@@ -203,7 +204,7 @@
 - make: fix a race condition (reported by sanvila) `#2406` c92dddbe
 - syntax (completion-context): fix an infinite loop caused by nested braces (fixed by dlyongemallo) `#D2407` f38850cb
 - make: detect ./make_command.sh failure in `mwg_pp.awk` (reported by giggio, hibiday) `#D2415` 88266b9f
-- base: suppress error message in attempt at mkdir `$_ble_base/run` (reported by hibiday) `#D2414` 88266b9f xxxxxxxx
+- base: suppress error message in attempt at mkdir `$_ble_base/run` (reported by hibiday) `#D2414` 88266b9f 5d39ebe6
 
 ## Compatibility
 
@@ -314,6 +315,7 @@
 - contrib: add `integration/fzf-menu` (motivated by pallaswept) `#D2251` ad6f58b7 `#D2259` 5b9d9ab3 `#D2402` eb349ea6
 - contrib/integration/fzf-completion: add `ble/widget/fzf-complete` (motivated by 3ximus) `#D2252` ad6f58b7
 - contrib/colorglass:  color: import themes from `Gogh-Co/Gogh` (motivated by d4rkb4sh8) `#D2274` d2eb75b5
+  - contrib/colorglass:  update palettes `#D2417` xxxxxxxx
 - contrib/integration/fzf-completion: suppress unexpected quoting by compgen in dynamic completions (reported by mcepl) `#D2284` 32f290df
 - contrib/integration/fzf-initialize: use `fzf --bash` when shell integration files are not found (motivated by louiss0) `#D2285` 32f290df
   - integration/fzf-initialize: (reported by 3ximus) `#D2285` a36d13ce

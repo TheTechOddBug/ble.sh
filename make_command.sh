@@ -625,6 +625,7 @@ function sub:scan/check-readonly-unsafe {
       /^READLINE_[_A-Z0-9]*$/d
       /^LC_[_A-Z0-9]*$/d
       /^LANG$/d
+      /^TEXTDOMAIN$/d
 
       # other uppercase variables that ble.sh is allowed to use.
       /^(FUNCNEST|IFS|IGNOREEOF|POSIXLY_CORRECT|TMOUT)$/d

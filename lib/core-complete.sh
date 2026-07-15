@@ -2109,9 +2109,22 @@ function ble/complete/action:command/get-desc {
       ble/alias#expand "$CAND"
       title=alias value=$ret ;;
     ($_ble_attr_CMD_FILE)
-      local path; ble/bin#get-path "$CAND"
-      [[ $path == ?*/"$CAND" ]] && path="from ${path%/"$CAND"}"
-      title=file value=$path ;;
+      title=file
+      local ret
+      if [[ :$bleopt_complete_source_command_opts: == *:apropos:* ]] && ble/complete/mandb/apropos#get "$CAND"; then
+        value=$ret
+        ble/color/face2sgr-ansi syntax_document
+        value=$ret$value$_ble_term_sgr0
+      else
+        local path; ble/bin#get-path "$CAND"
+        if [[ $path == ?*/"$CAND" ]]; then
+          ble/color/face2sgr-ansi filename_directory
+          value='from '$ret${path%/"$CAND"}$_ble_term_sgr0
+        else
+          ble/color/face2sgr-ansi filename_executable
+          value=$ret$path$_ble_term_sgr0
+        fi
+      fi ;;
     ($_ble_attr_CMD_FUNCTION)
 
       local source lineno
@@ -2138,7 +2151,7 @@ function ble/complete/action:command/get-desc {
       title=${_ble_complete_action_command_desc[type]:-'???'} ;;
     esac
   fi
-  desc=${title:+$desc_sgrt($title)$desc_sgr0}${value:+ $value}
+  desc=${title:+$desc_sgrt($title)$desc_sgr0${value:+ }}$value
 }
 
 # action:variable
@@ -6044,6 +6057,135 @@ function ble/complete/mandb/load-cache {
   ble/complete/mandb/generate-cache "$@" &&
     ble/util/mapfile ret < "$ret"
 }
+
+if ble/is-function ble/bin/man; then
+  function ble/complete/mandb/apropos.load {
+    [[ $_ble_complete_mandb_apropos_init ]]
+    _ble_complete_mandb_apropos_init=
+
+    # Note: "man-db"-based man produces the description '(unknown subject)' (or
+    # the corresponding i18n text) for the entries without the description.  We
+    # want to exclude such an entry.  We may use Bash's $"..." for gettext.
+    local -x msg_missing='(unknown subject)'
+    TEXTDOMAIN=man-db builtin eval 'local -x msg_missing_l=$"(unknown subject)"'
+
+    # Note: mawk < 1.3.3-20090710 doesn't support POSIX character classes like
+    # [:blank:], so we would rather list the elements explicitly.
+    local blank=$' \t'
+
+    local -x q="'" Q="'\''"
+    local awk_script='
+      function qsort(K, V, l, u, _, i, j, k1, tmp) {
+        if (u - l <= 1) return;
+        k1 = "" K[int((l + u) / 2)]; # as str
+        i = l;
+        j = u;
+        while (1) {
+          while (i < j && K[i] < k1) i++;
+          while (i < j && K[j-1] > k1) j--;
+          if (j - i <= 1) break;
+          tmp = K[i]; K[i] = K[j-1]; K[j-1] = tmp;
+          tmp = V[i]; V[i] = V[j-1]; V[j-1] = tmp;
+          i++;
+          j--;
+        }
+        qsort(K, V, l, i);
+        qsort(K, V, j, u);
+      }
+
+      BEGIN {
+        q = ENVIRON["q"];
+        Q = ENVIRON["Q"];
+        msg_missing = ENVIRON["msg_missing"];
+        msg_missing_l = ENVIRON["msg_missing_l"];
+
+        g_index = 0;
+      }
+
+      match($0, /^([^'"$blank"']|,['"$blank"']+)+['"$blank"']*\([18]\)/) >= 1 {
+        name = substr($0, 1, RLENGTH);
+        desc = substr($0, RLENGTH + 1);
+        gsub(/^['"$blank"']+|['"$blank"']*\([18]\)$/, "", name);
+        gsub(/^['"$blank"']+(-['"$blank"']+)?|['"$blank"']+$/, "", desc);
+        if (desc == "" || desc == msg_missing || desc == msg_missing_l) next;
+
+        # Note: Google AI mode told me that there can be a colon-separated
+        # entry like "comppress, uncompress (1) - <desc>".  I checked the
+        # behavior of man-db, but it produced two separate lines for "compress"
+        # and "uncompress" with the identical description.  I'\''m not sure if
+        # there is an actual implementation with a colon-separated entry, but
+        # we anyway support it in case.
+
+        n = split(name, names, /,['"$blank"']/);
+        for (i = 1; i <= n; i++) {
+          g_name[g_index] = name;
+          g_desc[g_index] = desc;
+          g_index++;
+        }
+      }
+      END {
+        if (_ble_bash >= 40200) {
+          print "declare -gA _ble_complete_mandb_apropos_dict=(";
+          for (i = 0; i < g_index; i++) {
+            name = g_name[i];
+            desc = g_desc[i];
+            gsub(/'\''/, Q, name);
+            gsub(/'\''/, Q, desc);
+            print "[" q name q "]=" q desc q;
+          }
+          print ")";
+        } else {
+          # sorted array
+          qsort(g_name, g_desc, 0, g_index);
+          print "_ble_complete_mandb_apropos_keys=(";
+          for (i = 0; i < g_index; i++) {
+            name = g_name[i];
+            gsub(/'\''/, Q, name);
+            print q name q;
+          }
+          print ")";
+          print "_ble_complete_mandb_apropos_vals=(";
+          for (i = 0; i < g_index; i++) {
+            desc = g_desc[i];
+            gsub(/'\''/, Q, desc);
+            print q desc q;
+          }
+          print ")";
+        }
+      }
+    '
+
+    local LC_ALL= LC_COLLATE=C 2>/dev/null # suppress locale error #D1440
+    ble/util/eval-stdout 'ble/bin/man -s 1,8 -k . | ble/bin/awk -F "$_ble_term_FS" -v _ble_bash="$_ble_bash" "$awk_script"'
+    ble/util/unlocal LC_COLLATE LC_ALL 2>/dev/null
+
+    function ble/complete/mandb/apropos.load { return 0; }
+  }
+
+  if ((_ble_bash>=40200)); then
+    function ble/complete/mandb/apropos#get {
+      ble/complete/mandb/apropos.load
+      ret=${_ble_complete_mandb_apropos_dict[$1]-}
+      [[ $ret ]]
+    }
+  else
+    function ble/complete/mandb/apropos#get {
+      ble/complete/mandb/apropos.load
+      local l=0 u=${#_ble_complete_mandb_apropos_keys[@]}
+      while ((u-l>=2)); do
+        if [[ $1 < "${_ble_complete_mandb_apropos_keys[m=(l+u)/2]}" ]]; then
+          u=$m
+        else
+          l=$m
+        fi
+      done
+      [[ $1 == "${_ble_complete_mandb_apropos_keys[l]}" ]] &&
+        ret=${_ble_complete_mandb_apropos_vals[l]}
+    }
+  fi
+else
+  function ble/complete/mandb/apropos#get { return 1; }
+fi
 
 ## @fn ble/complete/source:option/.is-option-context args...
 ##   args... に "--" などのオプション解釈を停止する様な引数が含まれて

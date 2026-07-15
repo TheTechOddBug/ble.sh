@@ -146,6 +146,8 @@ function bleopt/check:complete_source_sabbrev_ignore {
   fi
 }
 
+bleopt/declare -v complete_source_command_opts ''
+
 #------------------------------------------------------------------------------
 # 描画設定
 

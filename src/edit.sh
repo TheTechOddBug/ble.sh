@@ -11762,6 +11762,19 @@ if [[ $bleopt_internal_suppress_bash_output ]]; then
       local line=$1
 
       # 様々の Bash のバージョンで使われているメッセージと照合する。
+      #
+      # Note: $"" doesn't work for this case: one may want to retrieve the i18n
+      # message for «msgid "Use \"%s\" to leave the shell.\n"» using Bash's
+      # $"".  However, it turned out that it is impossible to get msgstr for an
+      # msgid containing the literal «"».  If one specifies «$"Use \"%s\" to
+      # leave the shell.<newline>"», Bash seems to request gettext with the
+      # msgid being «Use \"%s\" to leave the shell.<newline>» where the
+      # backslash sequence is preserved to be «\"».  Since the true msgid is
+      # «Use "%s" to leave the shell.<newline>» where the backslash sequence is
+      # processed in interpreting .po, it doesn't match.  One might instead
+      # consider including «"» without backslash in $"", but that does not work
+      # because unescaped «"» immediately terminates $"".  This means that it
+      # is impossible to get the msgstr for an msgid including «"».
       [[ ( $bleopt_internal_ignoreeof_trap && $line == *$bleopt_internal_ignoreeof_trap* ) ||
            $line == *'Use "exit" to leave the shell.'* ||
            $line == *'ログアウトする為には exit を入力して下さい'* ||

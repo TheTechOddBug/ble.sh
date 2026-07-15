@@ -93,7 +93,8 @@
 - complete: support `bleopt complete_auto_complete_opts=suppress-inside-{line,word}:syntax-suppress-{ambiguous,empty}` (requested by pallaswept) `#D2384` 2f564e63
 - util (`bleopt`, etc.): highlight shell quoting by backslash `#D2388` 7cf13879
 - complete: introduce more stages to ambiguous pathname completions (reported by xuhdev) `#D2397` abb93e21
-^ color: support color aliases `#D2416` xxxxxxxx
+- color: support color aliases `#D2416` d69e4d54
+- complete: support `bleopt complete_source_command_opts=apropos` (requested by alicealysia) `#D2418` xxxxxxxx
 
 ## Changes
 
@@ -315,7 +316,7 @@
 - contrib: add `integration/fzf-menu` (motivated by pallaswept) `#D2251` ad6f58b7 `#D2259` 5b9d9ab3 `#D2402` eb349ea6
 - contrib/integration/fzf-completion: add `ble/widget/fzf-complete` (motivated by 3ximus) `#D2252` ad6f58b7
 - contrib/colorglass:  color: import themes from `Gogh-Co/Gogh` (motivated by d4rkb4sh8) `#D2274` d2eb75b5
-  - contrib/colorglass:  update palettes `#D2417` xxxxxxxx
+  - contrib/colorglass:  update palettes `#D2417` d69e4d54
 - contrib/integration/fzf-completion: suppress unexpected quoting by compgen in dynamic completions (reported by mcepl) `#D2284` 32f290df
 - contrib/integration/fzf-initialize: use `fzf --bash` when shell integration files are not found (motivated by louiss0) `#D2285` 32f290df
   - integration/fzf-initialize: (reported by 3ximus) `#D2285` a36d13ce

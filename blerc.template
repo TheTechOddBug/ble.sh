@@ -1443,10 +1443,12 @@ blehook/eval-after-load keymap_vi blerc/vim-load-hook
 #bleopt debug_idle=1
 
 
-## [The setting "openat_base" needs to be set before ble.sh is loaded or
-## specified in the source options.  Therefore the value should be assigned
-## directly to the shell variable "bleopt_openat_base" instead of using
-## "bleopt" command.]
+## [The setting "openat_base" needs to be set before ble.sh is initialized.
+## Therefore the value should be specified to the source options as
+## e.g. "source ble.sh -o openat_base=30" instead of using "bleopt" command.
+## Another way has been setting the shell variable "bleopt_openat_base" before
+## sourcing ble.sh, but this is no longer recommended because "bleopt_*" will
+## be renamed in the future.]
 ##
 ## This setting "openat_base" specifies the starting number of the file
 ## descriptors which ble.sh internally uses in Bash 4.0 or lower.  The value of

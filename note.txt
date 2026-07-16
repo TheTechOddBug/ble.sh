@@ -1928,6 +1928,14 @@ bash_tips
 
 2026-07-16
 
+  * bash: "${!var@}" が遅い理由?
+    Ref #D2420
+
+    そもそも何故そんなに時間がかかるのだろうか? 最適化できるのではないだろうか?
+    単に bucket scan して全部比較するだけではないのだろうか? 或いは、空bucket
+    が沢山ある? もしくは変数は hash table で管理されている訳ではない?  或いは
+    sort してから filter しているとか。。。
+
   * menu-complete: 何故か tab で末尾まで移動すると先頭に戻ってきてしまう。これはバグでは。
 
   x bash-4.0 のコマンド実行で TIMEFORMAT が leak している。何故?
@@ -1943,10 +1951,6 @@ bash_tips
     それを使えば asort のない実装でも外部の sort を呼び出さずに済むのでは? 然し、
     この辺りの実装は複雑で何をやっているのか忘れてしまったので、改めて何をして
     いるのか観察する必要がある。
-
-2026-07-11
-
-  * bleopt color_scheme が遅い。キャッシュ等の仕組みを整えるべきかもしれない。
 
 2026-05-31
 
@@ -8241,6 +8245,151 @@ bash_tips
 -------------------------------------------------------------------------------
 
 2026-07-16
+
+  * 2026-07-11 bleopt color_scheme が遅い。キャッシュ等の仕組みを整えるべきかもしれない [#D2420]
+
+    というか ble/contrib/scheme:default/initialize が既に遅い。163ms かかってい
+    る。中でやっているのは ble-face -r であるのにも拘らず。
+
+    a うーん。@ によるマッチングに時間がかかっているのか、
+
+    b もしくは -r による削除に時間がかかっているのか。
+
+      → bleopt/expand-variable-pattern だけ呼び出して見た所、これだけで 151ms
+      かかっている。殆ど全てがこの expand-variable-pattern による overhead の様
+      だ。そしてどうやら "${!_ble_faces__argumen_@}" の評価に時間がかかっている?
+
+      builtin eval -- "ret=(\"\${!${pattern%%[@*?]*}@}\")"
+
+      うーん。普通に以下を実行しても 21ms かかる。
+
+      a=("${!_ble_faces__argument_@}")
+
+    c 関数の呼び出し及び引数の解析自体に時間がかかっている可能性? → ble-face
+      -r を一つにくっつけて見たが余り高速化しない。従って、shopt の保存・復元な
+      どで時間がかかっている訳ではない。
+
+    つまり、bash 自体の変数の列挙が遅いという事。うーん。これは _ble が沢山の変
+    数を定義しすぎているのが原因? → 今数えてみたら 2004 個である。多いと言えば
+    多いが C 実装の bash が遅くなる程ではない様な気がする。でも実際に遅いのだか
+    ら仕方がない。
+
+    或いは compgen -V a -v _ble_faces__argument_ も同じ位時間がかかる。うーん。
+    やはり変数名が 2000 ぐらいで既に重いという事の気がする。うーん。もし大量に
+    定義されている無駄な変数があれば削減することを考えるべき? 例えば bleopt_@
+    は 200、_ble_opt_def_@ は 200、_ble_faces__@ は 200 ぐらい定義してい
+    る。_ble_term_@ が 100、_ble_{ctx,attr}_@ が 120 ある。うーん。それでも 800
+    ぐらいしか減らせない。もっと頑張れば半分ぐらいにはできるのかもしれないが、
+    半分になった程度では状況は変わらないだろう。
+
+    うーん。"${!...@}" は遅いのだとしたら、それとは別に faces の一覧を管理して
+    その配列を filter すれば良い。というか既に _ble_faces という配列に face 一
+    覧が含まれている様だ。と思ったら違った。_ble_faces に入っているのは g 値も
+    しくはそれを算出する算術式だった。代わりに新しく _ble_faces_iface2name とい
+    う配列を管理することにした。
+
+    _ble_faces_iface2name から expand-variable-names を実行する様に変更したとこ
+    ろ 156ms かかっていたのが 29ms にまで短くなった。更に ble-face -r を 1 回の
+    呼び出しにまとめる事で 21ms になった。そんなに縮まっていないが、初期化の時
+    間に関係すると思えばこれは重要である。
+
+    * fixed: うーん。今回 array#contains を使う様になったので、それによって逆
+      に普通に非パターンで指定した時の速度が遅くなっているのでは? やはり
+      expand-variable-pattern では変数名を生成するということにして、渡す配列も
+      名前ではなくて変数名を格納した物とする。_ble_faces_iface2name ではなくて
+      _ble_faces_iface2var という名前に変更した。これで非パターンの時は
+      ${!pattern+set} で単に判定することができる
+
+      →これにより更に 18ms にまで短縮した。
+
+    * done: bleopt の @ も同様の問題があるのではないか。これも同様に改良できな
+      いか。特に ble.sh の初期化の速度にも影響を与える気がする → これは
+      _ble_opt_vars という配列で管理する事にした。
+
+    * done: うーん。_ble_opt_def 等の値は gdict で管理するべきだろうか? その為
+      には gdict や配列操作の関数を上に持ってくる必要がある。幸い、adict も
+      gdict も ble 特有の関数は基本的に使っていないので、最初に持ってきても大丈
+      夫の気がする。
+
+      a 単に bleopt の定義をまるっと下に移動すれば良い様な気がしてきた。実は現
+        時点で色々怪しい。bleopt の内部で色々な関数を呼び出している。問題が起こっ
+        ていなかったのは配列などの定義をするまでは bleopt/declare しか呼び出し
+        ていなかったからである。そして bleopt/declare は何も使っていなかった。
+        今回問題なのは bleopt/declare で gdict を使いたいからだった。しかしそも
+        そも bleopt が全体に様々の関数に依存するのであれば、もっと下に定義を移
+        動するべきである。
+
+      b もしくは既にある bleopt/declare をもっと下の方 (というか実際に使う場所)
+        に移動する。そもそも bleopt の宣言を先頭に集める意味もないし、現状
+        bleopt の一連の定義の後なので全然先頭じゃない。
+
+        しかも改めて util.sh の中を検索してみたら、後ろの方でも沢山
+        bleopt/declare をしていて、寧ろ先頭で定義している方が少数派だった。
+
+    * reject: この際 bleopt_@ も全部改名してしまう? でも世の中には直接
+      bleopt_... を弄っている人が既にいるかもしれない。
+
+      何かここで bleopt_@ や _ble_opt_def_@ などの構造について言及されている。
+      でも、これ自体 AI generated 解説である。
+      https://github.com/carapace-sh/carapace/tree/458a0c1bb496650e7d2bd2badecf07390c16fd39/skills/bash-ble/references
+
+      何と blerc.template で bleopt_openat_base を使えという解説が残っている。
+
+      * done: これは修正する必要がある。source ble.sh の時に -o 等で指定すると
+        いう事を示せば良い。と思ったが既に下の方の例には書かれていた。
+        bleopt_openat_base は改名されるから使うなという事は書いた。
+
+      うーん。取り敢えず今回は bleopt までは変えない事にする。既定値については
+      gdict _ble_opt_defs に移動する事にした。bleopt の変数に関しては頻繁に参照
+      する事から、もし改名するとしても、連想配列に格納するよりは今まで通りにそ
+      れぞれの変数 (_ble_opt__@ 等) に格納する事になるだろう。でも、それだと今
+      までと変わらないので今敢えて bleopt_@ から名前を変える必要性もない。
+
+    * done: 他にも ${!...@} を使っている箇所は色々ある。特に繰り返し実行される
+      場所についてはちゃんと一覧を自分で管理する様に変更する。毎回 20ms 消費す
+      るのは遅い。
+
+      $ grc '\{!.*[_a-zA-Z0-9]@\}'
+      ./ble.pp:3225:  for var in LANG "${!LC_@}"; do
+      これはテストコード
+
+      ./contrib/integration/fzf-completion.bash:68:  fzf_orig_completions=("${!_fzf_orig_completion_@}")
+      これは外部の枠組みの変数
+
+      ./src/decode.sh:1644:    builtin eval -- "array_names=(\"\${!_ble_decode_${1}_kmap_@}\")"
+      ./src/decode.sh:1663:    for var in "${!_ble_decode_@}"; do
+      cleanup
+
+      ./src/decode.sh:1682:    builtin eval "arrays=(\"\${!_ble_decode_${kmap}_kmap_@}\")"
+      ./src/decode.sh:3260:    ble/util/declare-print-definitions "${!_ble_decode_kbd__@}" "${!_ble_decode_KCODE_@}" "${!_ble_decode_cmap_@}" "${!_ble_decode_csimap_@}"
+      dump
+
+      ./src/edit.sh:4061:        ble/array#push vars "${!_ble_highlight_layer_LAYER_@}"
+      ble/textarea#save-state
+
+      ./src/edit.sh:4532:  for var in _ble_bash_LANG "${!_ble_bash_LC_@}" LANG "${!LC_@}"; do
+      display-shell-version
+
+      ./src/util.hook.sh:208:    print=("${!_ble_hook_h_@}")
+      blehook (無引数) → これは _ble_hook_vars という配列に変数名一覧を記録す
+      ることにした。
+
+      ./src/util.sh:3504:    for var in "${!_ble_util_fd_@}"; do
+
+      reject: これは前の session が残した変数を確認するコードである。うーん。こ
+      れは初期化の時間に直結する。なので、改良の余地がある。と思った
+      が、_ble_util_fd_@ で列挙されるのは何らかの枠組みの中で追加されるものとい
+      う訳ではなくて、普通に _ble_util_fd_ で始まる雑多の変数名の集まりだった。
+      なので動的に追加されたら配列に登録するとかそういう方法によって対応するも
+      のでもない。うーん。面倒なので気にしない事にする。少なくとも初回の ble.sh
+      のロードの時には未だ変数名がそんなに増えていない筈。
+
+      ./src/util.sh:4278:    builtin unset -v "${!_ble_processed_@}"
+
+      done: これは外部で既に定義されている変数が干渉しない為に subshell 内で実
+      行しているが、そもそも変数空間ではなくて普通に ble/set か ble/dict で処理
+      済みかどうかを判断すれば良いのだった。これについては ble/set を使う様に変
+      更した。
 
   * util (ble/adict): re-implement by the AVL tree [#D2419]
 

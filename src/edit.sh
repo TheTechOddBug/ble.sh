@@ -4178,8 +4178,7 @@ function ble/edit/display-version/git-rev-parse {
   "${_ble_util_set_declare[@]//NAME/visited}" # WA #D1570 checked
   until [[ -s $git_base/HEAD || -s $git_base/.git/HEAD ]]; do
     # guard for cyclic refs
-    ble/set#contains visited "$git_base" && return 1
-    ble/set#add visited "$git_base"
+    ble/set#add visited "$git_base" || return 1
 
     # submodule?
     if [[ -f $git_base/.git ]]; then

@@ -9,10 +9,13 @@ _ble_term_IFS=$' \t\n'
 _ble_term_CR=$'\r'
 _ble_term_blank=$' \t' # WA #D2055
 
+_ble_hook_vars=()
+
 function blehook/declare {
   local name=$1
   builtin eval "_ble_hook_h_$name=()"
   builtin eval "_ble_hook_c_$name=0"
+  _ble_hook_vars[${#_ble_hook_vars[@]}]=_ble_hook_h_$name
 }
 
 # ble.pp

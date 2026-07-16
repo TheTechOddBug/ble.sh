@@ -4,6 +4,17 @@
 #------------------------------------------------------------------------------
 # ble.sh options
 
+## @var _ble_opt_vars
+##   This contains the list of variable names (which is currently "bleopt_*")
+##   used to store the bleopt options.
+_ble_opt_vars=()
+
+## @var[gdict] _ble_opt_defs
+##   This will be declared after "ble/gdict#*" are defined.  Note: This implies
+##   that bleopt/declare and other bleopt functions cannot be called before
+##   "ble/gdict#*" are defined.
+#declare -gA _ble_opt_defs=()
+
 function bleopt/.read-arguments/process-option {
   local name=$1
   case $name in
@@ -27,16 +38,22 @@ function bleopt/.read-arguments/process-option {
   esac
 }
 
-## @fn bleopt/expand-variable-pattern pattern opts
+## @fn bleopt/expand-variable-pattern pattern [opts] [array_name]
 ##   @param[in] pattern
+##   @param[in,opt] opts
+##   @param[in,opt] array_name
 ##   @var[out] ret
 function bleopt/expand-variable-pattern {
   ret=()
   local pattern=$1
   if [[ $pattern == *[@*?]* ]]; then
-    builtin eval -- "ret=(\"\${!${pattern%%[@*?]*}@}\")"
+    if [[ ${3-} ]]; then
+      builtin eval -- "ret=(\"\${$3[@]}\")"
+    else
+      builtin eval -- "ret=(\"\${!${pattern%%[@*?]*}@}\")"
+    fi
     ble/array#filter-by-glob ret "${pattern//@/*}"
-  elif [[ ${!pattern+set} || :$opts: == :allow-undefined: ]]; then
+  elif [[ ${!pattern+set} || :$opts: != :allow-undefined: ]]; then
     ret=("$pattern")
   fi
   ((${#ret[@]}))
@@ -93,7 +110,7 @@ function bleopt/.read-arguments {
           continue
         fi
       else
-        local ret; bleopt/expand-variable-pattern "$var"
+        local ret; bleopt/expand-variable-pattern "$var" '' _ble_opt_vars
 
         # obsolete な物は除外
         var=()
@@ -139,13 +156,15 @@ function bleopt/.read-arguments {
 }
 
 function bleopt/changed.predicate {
-  local cur=$1 def=_ble_opt_def_${1#bleopt_}
-  [[ ! ${!def+set} || ${!cur} != "${!def}" ]]
+  local var=$1 ret
+  ble/gdict#get _ble_opt_defs "${var#bleopt_}" || return 0
+  [[ ${!var} != "$ret" ]]
 }
 
+## @fn bleopt/default name
+##   @var[out] ret
 function bleopt/default {
-  local def=_ble_opt_def_${1#bleopt_}
-  ret=${!def}
+  ble/gdict#get _ble_opt_defs "${1#bleopt_}"
 }
 
 ## @fn bleopt args...
@@ -196,7 +215,7 @@ function bleopt {
 
   if ((${#pvars[@]}==0&&${#specs[@]}==0)); then
     local var ip=0
-    for var in "${!bleopt_@}"; do
+    for var in "${_ble_opt_vars[@]}"; do
       ble/is-function "bleopt/obsolete:${var#bleopt_}" && continue
       pvars[ip++]=$var
     done
@@ -207,13 +226,13 @@ function bleopt {
 
   # --reset: pvars を全て既定値の設定に読み替える
   if [[ $flags == *r* ]]; then
-    local var
+    local var ret
     for var in "${pvars[@]}"; do
       local name=${var#bleopt_}
       ble/is-function bleopt/obsolete:"$name" && continue
-      local def=_ble_opt_def_$name
-      [[ ${!def+set} && ${!var-} != "${!def}" ]] &&
-        ble/array#push specs "$var=${!def}"
+      ble/gdict#get _ble_opt_defs "$name" &&
+        [[ ${!var-} != "$ret" ]] &&
+        ble/array#push specs "$var=$ret"
     done
     pvars=()
   elif [[ $flags == *I* ]]; then
@@ -299,93 +318,54 @@ function bleopt/declare/.check-renamed-option {
   return 0
 }
 function bleopt/declare {
-  local type=$1 name=bleopt_$2 default_value=${3-}
-  # local set=${!name+set} value=${!name-}
+  local type=$1 name=$2 default_value=${3-}
+  local varname=bleopt_$name
+  # local set=${!varname+set} value=${!varname-}
+
+  # Register the variable name to "_ble_opt_vars", when the option hasn't yet
+  # been registered to "_ble_opt_defs".
+  ble/gdict#has _ble_opt_defs "$name" || ble/array#push _ble_opt_vars "$varname"
+
   case $type in
   (-o)
-    if [[ ${3-} ]]; then
-      builtin eval -- "$name='[obsolete: renamed to $3]'"
+    if [[ ${default_value-} ]]; then
+      default_value='[obsolete: renamed to '$default_value']'
     else
-      builtin eval -- "$name='[obsolete]'"
+      default_value='[obsolete]'
     fi
+    builtin eval -- "$varname=\$default_value"
     builtin eval -- "function bleopt/check:$2 { bleopt/declare/.check-renamed-option $2 $3; }"
     builtin eval -- "function bleopt/obsolete:$2 { return 0; }" ;;
   (-n)
-    builtin eval -- "_ble_opt_def_$2=\$3"
-    builtin eval -- ": \"\${$name:=\$default_value}\"" ;;
+    builtin eval -- ": \"\${$varname:=\$default_value}\"" ;;
   (*)
-    builtin eval -- "_ble_opt_def_$2=\$3"
-    builtin eval -- ": \"\${$name=\$default_value}\"" ;;
+    builtin eval -- ": \"\${$varname=\$default_value}\"" ;;
   esac
+  ble/gdict#set _ble_opt_defs "$name" "$default_value"
   return 0
 }
 function bleopt/reinitialize {
   local name=$1
-  local defname=_ble_opt_def_$name
   local varname=bleopt_$name
-  [[ ${!defname+set} ]] || return 1
-  [[ ${!varname} == "${!defname}" ]] && return 0
+
+  local ret
+  ble/gdict#get _ble_opt_defs "$name" || return 1
+  local default_value=$ret
+  [[ ${!varname} == "$default_value" ]] && return 0
   ble/is-function bleopt/obsolete:"$name" && return 0
   ble/is-function bleopt/check:"$name" || return 0
 
   # 一旦値を既定値に戻して改めてチェックを行う。
   local value=${!varname}
-  builtin eval -- "$varname=\$$defname"
+  builtin eval -- "$varname=\$default_value"
   bleopt/check:"$name" &&
     builtin eval "$varname=\$value"
 }
 
-## @bleopt input_encoding
-bleopt/declare -n input_encoding UTF-8
-function bleopt/check:input_encoding {
-  if ! ble/is-function ble/encoding:"$value"/decode; then
-    ble/util/print "bleopt: Invalid value input_encoding='$value'. A function 'ble/encoding:$value/decode' is not defined." >&2
-    return 1
-  elif ! ble/is-function ble/encoding:"$value"/b2c; then
-    ble/util/print "bleopt: Invalid value input_encoding='$value'. A function 'ble/encoding:$value/b2c' is not defined." >&2
-    return 1
-  elif ! ble/is-function ble/encoding:"$value"/c2bc; then
-    ble/util/print "bleopt: Invalid value input_encoding='$value'. A function 'ble/encoding:$value/c2bc' is not defined." >&2
-    return 1
-  elif ! ble/is-function ble/encoding:"$value"/generate-binder; then
-    ble/util/print "bleopt: Invalid value input_encoding='$value'. A function 'ble/encoding:$value/generate-binder' is not defined." >&2
-    return 1
-  elif ! ble/is-function ble/encoding:"$value"/is-intermediate; then
-    ble/util/print "bleopt: Invalid value input_encoding='$value'. A function 'ble/encoding:$value/is-intermediate' is not defined." >&2
-    return 1
-  fi
-
-  # Note: ble/encoding:$value/clear は optional な設定である。
-
-  if [[ $bleopt_input_encoding != "$value" ]]; then
-    local bleopt_input_encoding=$value
-    ble/decode/readline/rebind
-  fi
-  return 0
-}
-
-## @bleopt internal_stackdump_enabled
-##   エラーが起こった時に関数呼出の構造を標準エラー出力に出力するかどうかを制御する。
-##   算術式評価によって非零の値になる場合にエラーを出力する。
-##   それ以外の場合にはエラーを出力しない。
-bleopt/declare -v internal_stackdump_enabled 0
-
-## @bleopt openat_base
-##   bash-4.1 未満で exec {var}>foo が使えない時に ble.sh で内部的に fd を割り当てる。
-##   この時の fd の base を指定する。bleopt_openat_base, bleopt_openat_base+1, ...
-##   という具合に順番に使用される。既定値は 30 である。
-bleopt/declare -n openat_base 30
-
-## @bleopt pager
-bleopt/declare -v pager ''
-
-## @bleopt editor
-bleopt/declare -v editor ''
-
-shopt -s checkwinsize
-
 #------------------------------------------------------------------------------
 # util
+
+shopt -s checkwinsize
 
 function ble/util/setexit { return "$1"; }
 
@@ -709,6 +689,16 @@ function ble/array#remove/.predicate { [[ $1 != "$_ble_local_value" ]]; }
 function ble/array#remove {
   local _ble_local_value=$2
   ble/array#filter "$1" ble/array#remove/.predicate
+}
+## @fn ble/array#contains arr needle
+function ble/array#contains {
+  local _ble_local_script='
+    local eNAME
+    for eNAME in "${NAME[@]}"; do
+      [[ $eNAME != "$2" ]] || return 0
+    done
+    return 1
+  '; builtin eval -- "${_ble_local_script//NAME/$1}"
 }
 ## @fn ble/array#index arr needle
 ##   @var[out] ret
@@ -1648,7 +1638,7 @@ function ble/opts#extract-all-optargs {
 
 if ((_ble_bash>=40000)); then
   _ble_util_set_declare=(declare -A NAME)
-  function ble/set#add { builtin eval -- "$1[x\$2]=1"; }
+  function ble/set#add { builtin eval -- "[[ ! \${$1[x\$2]+set} ]] && $1[x\$2]=1"; }
   function ble/set#remove { builtin unset -v "$1[x\$2]"; }
   function ble/set#contains { builtin eval "[[ \${$1[x\$2]+set} ]]"; }
 else
@@ -1659,7 +1649,8 @@ else
   }
   function ble/set#add {
     local _ble_local_value=$2; ble/set#.escape
-    ble/path#append "$1" "$_ble_local_value"
+    builtin eval "[[ :\$$1: != *:\"\$_ble_local_value\":* ]]" &&
+      ble/path#append "$1" "$_ble_local_value"
   }
   function ble/set#remove {
     local _ble_local_value=$2; ble/set#.escape
@@ -2034,6 +2025,9 @@ function ble/dict/.copy {
 function ble/dict#cp { ble/dict/.copy dict "$1" "$2"; }
 function ble/adict#cp { ble/dict/.copy adict "$1" "$2"; }
 function ble/gdict#cp { ble/dict/.copy gdict "$1" "$2"; }
+
+# Delayed initialization for bleopt
+builtin eval -- "${_ble_util_gdict_declare//NAME/_ble_opt_defs}"
 
 #------------------------------------------------------------------------------
 # assign: reading files/streams into variables
@@ -3544,11 +3538,10 @@ function ble/fd/.validate-shared-fds {
   fi
 
   if ((${#close_fd[@]})); then
-    "${_ble_util_set_declare[@]//NAME/mark}" # disable=#D1570
+    "${_ble_util_set_declare[@]//NAME/visited}" # disable=#D1570
     local fd
     for fd in "${close_fd[@]}"; do
-      ble/set#contains mark "$fd" && continue
-      ble/set#add mark "$fd"
+      ble/set#add visited "$fd" || continue
 
       # Note: XXX--At this point, the implementation of ble/fd#alloc/.close
       # does not work for Bash 3.1.  We give up closing file descriptors in
@@ -3561,6 +3554,12 @@ ble/fd/.validate-shared-fds
 _ble_util_fdlist_cloexit=
 export _ble_util_fdlist_cloexec=
 export _ble_util_fdvars_export=
+
+## @bleopt openat_base
+##   bash-4.1 未満で exec {var}>foo が使えない時に ble.sh で内部的に fd を割り当てる。
+##   この時の fd の base を指定する。bleopt_openat_base, bleopt_openat_base+1, ...
+##   という具合に順番に使用される。既定値は 30 である。
+bleopt/declare -n openat_base 30
 
 _ble_util_openat_nextfd=
 ## @fn ble/fd#alloc/.nextfd var [fdbase [opts]]
@@ -4276,12 +4275,11 @@ function ble/util/for-global-variables {
     __ble_q="'" __ble_Q="'\''"
     # 補完で 20 階層も関数呼び出しが重なることはなかろう
     __ble_MaxLoop=20
-    builtin unset -v "${!_ble_processed_@}"
+    "${_ble_util_set_declare[@]//NAME/__ble_visited}" # WA #D1570 checked
 
     for __ble_name; do
       [[ ${__ble_name//[_a-zA-Z0-9]} || $__ble_name == __ble_* ]] && continue
-      ((__ble_processed_$__ble_name)) && continue
-      ((__ble_processed_$__ble_name=1))
+      ble/set#add __ble_visited "$__ble_name" || continue
 
       __ble_found=
       if ((_ble_bash>=40200)); then
@@ -5050,6 +5048,12 @@ function ble/util/conditional-sync {
 }
 
 #------------------------------------------------------------------------------
+
+## @bleopt pager
+bleopt/declare -v pager ''
+
+## @bleopt editor
+bleopt/declare -v editor ''
 
 ## @fn ble/util/cat [files..]
 ##   cat の代替。直接扱えない NUL で区切って読み出す。
@@ -5852,11 +5856,10 @@ function ble/util/import/search {
     fi
     ble/array#push dirs "$_ble_base"{,/contrib,/lib}
 
-    "${_ble_util_set_declare[@]//NAME/checked}" # WA #D1570 checked
+    "${_ble_util_set_declare[@]//NAME/visited}" # WA #D1570 checked
     local path
     for path in "${dirs[@]}"; do
-      ble/set#contains checked "$path" && continue
-      ble/set#add checked "$path"
+      ble/set#add visited "$path" || continue
       ble/util/import/search/.check-directory "$ret" "$path" && break
     done
   fi
@@ -6112,6 +6115,15 @@ function ble/util/import/eval-after-load {
     "$onload" ble/array#push "$2"
   fi
 }
+
+#------------------------------------------------------------------------------
+# Diagnostics
+
+## @bleopt internal_stackdump_enabled
+##   エラーが起こった時に関数呼出の構造を標準エラー出力に出力するかどうかを制御する。
+##   算術式評価によって非零の値になる場合にエラーを出力する。
+##   それ以外の場合にはエラーを出力しない。
+bleopt/declare -v internal_stackdump_enabled 0
 
 ## @fn ble/util/stackdump [message]
 ## @fn ble-stackdump [message]
@@ -8219,7 +8231,36 @@ function ble/term/detach {
 }
 
 #------------------------------------------------------------------------------
-# String manipulations
+# Encoding and byte manipulations of strings
+
+## @bleopt input_encoding
+bleopt/declare -n input_encoding UTF-8
+function bleopt/check:input_encoding {
+  if ! ble/is-function ble/encoding:"$value"/decode; then
+    ble/util/print "bleopt: Invalid value input_encoding='$value'. A function 'ble/encoding:$value/decode' is not defined." >&2
+    return 1
+  elif ! ble/is-function ble/encoding:"$value"/b2c; then
+    ble/util/print "bleopt: Invalid value input_encoding='$value'. A function 'ble/encoding:$value/b2c' is not defined." >&2
+    return 1
+  elif ! ble/is-function ble/encoding:"$value"/c2bc; then
+    ble/util/print "bleopt: Invalid value input_encoding='$value'. A function 'ble/encoding:$value/c2bc' is not defined." >&2
+    return 1
+  elif ! ble/is-function ble/encoding:"$value"/generate-binder; then
+    ble/util/print "bleopt: Invalid value input_encoding='$value'. A function 'ble/encoding:$value/generate-binder' is not defined." >&2
+    return 1
+  elif ! ble/is-function ble/encoding:"$value"/is-intermediate; then
+    ble/util/print "bleopt: Invalid value input_encoding='$value'. A function 'ble/encoding:$value/is-intermediate' is not defined." >&2
+    return 1
+  fi
+
+  # Note: ble/encoding:$value/clear は optional な設定である。
+
+  if [[ $bleopt_input_encoding != "$value" ]]; then
+    local bleopt_input_encoding=$value
+    ble/decode/readline/rebind
+  fi
+  return 0
+}
 
 _ble_util_s2c_table_enabled=
 ## @fn ble/util/s2c text [index]

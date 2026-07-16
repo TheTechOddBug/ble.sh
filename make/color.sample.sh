@@ -573,7 +573,7 @@ function sub:generate-base16-sample {
       return sprintf("\x1b[48;2;%d;%d;%dm    \x1b[m #%06x", R, G, B, c);
     }
 
-    {
+    !g_visited[$1]++ {
       # vars: i color1 color2 line
       if (c_output_type == "html") {
         fg = strtonum($18);

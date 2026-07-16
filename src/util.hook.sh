@@ -135,7 +135,7 @@ function blehook/.read-arguments {
   local pat ret out; out=()
   for pat in "${print[@]}"; do
     if [[ $pat == *[@*?]* ]]; then
-      bleopt/expand-variable-pattern "_ble_hook_h_$pat"
+      bleopt/expand-variable-pattern "_ble_hook_h_$pat" '' _ble_hook_vars
       ble/array#filter ret ble/is-array
       [[ $pat == *[a-z]* || $flags == *a* ]] ||
         ble/array#remove-by-glob ret '_ble_hook_h_*[a-z]*'
@@ -205,7 +205,7 @@ function blehook {
   fi
 
   if ((${#print[@]}==0&&${#process[@]}==0)); then
-    print=("${!_ble_hook_h_@}")
+    print=("${_ble_hook_vars[@]}")
     [[ $flags == *a* ]] || ble/array#remove-by-glob print '_ble_hook_h_*[a-z]*'
   fi
 

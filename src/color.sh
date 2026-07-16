@@ -1247,10 +1247,12 @@ function ble/color/initialize-faces {
   function ble/color/defface {
     local name=_ble_faces__$1 spec=$2 ret
     (($name)) && return 0
-    (($name=++_ble_faces_count))
+    local iface=$((++_ble_faces_count))
+    (($name=iface))
     ble/color/setface/.spec2gexpr "$spec"
-    _ble_faces[$name]=$ret
-    _ble_faces_def[$name]=$ret
+    _ble_faces[iface]=$ret
+    _ble_faces_def[iface]=$ret
+    _ble_faces_iface2var[iface]=$name
   }
   function ble/color/setface {
     local name=_ble_faces__$1 spec=$2 ret
@@ -1302,7 +1304,7 @@ function ble/color/list-faces {
   fi
 
   local key
-  for key in "${!_ble_faces__@}"; do
+  for key in "${_ble_faces_iface2var[@]}"; do
     ble/color/face/.print-face "$key"
   done
 }
@@ -1538,7 +1540,7 @@ function ble/color/face {
       fi
     else
       local ret face
-      if bleopt/expand-variable-pattern "_ble_faces__$var"; then
+      if bleopt/expand-variable-pattern "_ble_faces__$var" '' _ble_faces_iface2var; then
         for face in "${ret[@]}"; do
           ble/color/setface "${face#_ble_faces__}" "$value"
         done
@@ -1561,7 +1563,7 @@ function ble/color/face {
     local spec
     for spec in "${print[@]}"; do
       local ret face
-      if bleopt/expand-variable-pattern "_ble_faces__$spec"; then
+      if bleopt/expand-variable-pattern "_ble_faces__$spec" '' _ble_faces_iface2var; then
         if [[ $flags == *r* ]]; then
           for face in "${ret[@]}"; do
             ble/color/face/.reset-face "$face"

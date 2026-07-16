@@ -2549,7 +2549,7 @@ function ble/base/check-bash-debug-version {
     local file=$_ble_base_cache/base.bash-debug-version-checked.txt
     local -a checked=()
     [[ ! -d $file && -r $file && -s $file ]] && ble/util/mapfile checked < "$file"
-    if ble/array#index checked "$BASH_VERSION"; then
+    if ble/array#contains checked "$BASH_VERSION"; then
       return 0
     else
       ble/util/print "$BASH_VERSION" >> "$file"

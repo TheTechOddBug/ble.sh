@@ -3709,8 +3709,7 @@ function ble/complete/progcomp/compopt {
     "${_ble_util_set_declare[@]//NAME/mark}" # WA #D1570 checked
     ble/set#add mark ''
     for option in "${options[@]}"; do
-      ble/set#contains mark "$option" && continue
-      ble/set#add mark "$option"
+      ble/set#add mark "$option" || continue
       out="$out -o $option"
     done
     ble/util/print "$out"
@@ -4887,15 +4886,13 @@ function ble/complete/mandb/initialize-manpath {
       else
         path=${path%/bin}/share/man
       fi
-      if [[ -d $path ]] && ! ble/set#contains mark "$path"; then
-        ble/set#add mark "$path"
+      if [[ -d $path ]] && ble/set#add mark "$path"; then
         ble/array#push manpath "$path"
       fi
     done
 
     for path in "${manpath_mandatory[@]}"; do
-      if [[ -d $path ]] && ! ble/set#contains mark "$path"; then
-        ble/set#add mark "$path"
+      if [[ -d $path ]] && ble/set#add mark "$path"; then
         ble/array#push manpath "$path"
       fi
     done
@@ -10942,8 +10939,7 @@ function ble/cmdinfo/complete:cd/.impl {
       [[ $cand == / ]] || cand=${cand%/}
       cand=${cand#"$name"}
 
-      ble/set#contains visited "$cand" && continue
-      ble/set#add visited "$cand"
+      ble/set#add visited "$cand" || continue
       ble/array#push candidates "$cand"
     done
     ((${#candidates[@]})) || continue

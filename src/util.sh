@@ -1675,84 +1675,267 @@ fi
 #--------------------------------------
 # dict
 
-_ble_util_adict_declare='declare NAME NAME_keylist'
-## @fn ble/dict#.resolve dict key
-function ble/adict#.resolve {
-  # _ble_local_key
-  _ble_local_key=$2
-  _ble_local_key=${_ble_local_key//$_ble_term_FS/"$_ble_term_FS,"}
-  _ble_local_key=${_ble_local_key//:/"$_ble_term_FS."}
+## @fn ble/adict#has   name key
+## @fn ble/adict#get   name key
+## @fn ble/adict#unset name key
+## @fn ble/adict#set   name key value
+## @fn ble/adict#keys  name
+## @fn ble/adict#clear name
+##   Dictionary implementation based on the AVL tree on flat arrays.  These
+##   are used to replace Bash 4.0's associative arrays for Bash 3.0.
 
-  local keylist=${1}_keylist; keylist=:${!keylist}
-  local vec=${keylist%%:"$_ble_local_key":*}
-  if [[ $vec != "$keylist" ]]; then
-    vec=${vec//[!:]}
-    _ble_local_index=${#vec}
-  else
-    _ble_local_index=-1
-  fi
-}
-function ble/adict#set {
-  local _ble_local_key _ble_local_index
-  ble/adict#.resolve "$1" "$2"
-  if ((_ble_local_index>=0)); then
-    builtin eval -- "$1[_ble_local_index]=\$3"
-  else
-    local _ble_local_script='
-      local _ble_local_vec=${NAME_keylist//[!:]}
-      NAME[${#_ble_local_vec}]=$3
-      NAME_keylist=$NAME_keylist$_ble_local_key:
-    '
-    builtin eval -- "${_ble_local_script//NAME/$1}"
-  fi
-  return 0
-}
-function ble/adict#get {
-  local _ble_local_key _ble_local_index
-  ble/adict#.resolve "$1" "$2"
-  if ((_ble_local_index>=0)); then
-    builtin eval -- "ret=\${$1[_ble_local_index]}; [[ \${$1[_ble_local_index]+set} ]]"
-  else
-    builtin eval -- ret=
-    return 1
-  fi
-}
-function ble/adict#unset {
-  local _ble_local_key _ble_local_index
-  ble/adict#.resolve "$1" "$2"
-  ((_ble_local_index>=0)) &&
-    builtin eval -- "builtin unset -v '$1[_ble_local_index]'"
-  return 0
-}
-function ble/adict#has {
-  local _ble_local_key _ble_local_index
-  ble/adict#.resolve "$1" "$2"
-  ((_ble_local_index>=0)) &&
-    builtin eval -- "[[ \${$1[_ble_local_index]+set} ]]"
-}
+_ble_util_adict_declare='{ declare NAME_{keys,vals,lptrs,rptrs,deps,free,root}; ble/adict#clear NAME; }'
 function ble/adict#clear {
-  builtin eval -- "${1}_keylist= $1=()"
+  local dict=$1 script='
+    NAME_keys=()
+    NAME_vals=()
+    NAME_lptrs=()
+    NAME_rptrs=()
+    NAME_deps=()
+    NAME_free=-1
+    NAME_root=-1
+  '
+  builtin eval -- "${script//NAME/$dict}"
 }
-function ble/adict#keys {
-  local _ble_local_keylist=${1}_keylist
-  _ble_local_keylist=${!_ble_local_keylist%:}
-  ble/string#split ret : "$_ble_local_keylist"
-  if [[ $_ble_local_keylist == *"$_ble_term_FS"* ]]; then
-    if ((40200<=_ble_bash&&_ble_bash<40300&&${#ret[@]}==1)); then
-      ret=("${ret[0]//$_ble_term_FS./:}")             # WA for #D2352
-      ret=("${ret[0]//$_ble_term_FS,/$_ble_term_FS}") # WA for #D2352 (disable=#D1738)
-    else
-      ret=("${ret[@]//$_ble_term_FS./:}")             # disable=#D1570,#D2352
-      ret=("${ret[@]//$_ble_term_FS,/$_ble_term_FS}") # disable=#D1570,#D1738,#D2352
+
+function ble/adict/.alloc {
+  if ((${dict}_free >= 0)); then
+    ret=$((${dict}_free))
+    ((${dict}_free=${dict}_lptrs[ret]))
+  else
+    builtin eval 'ret=${#'"$dict"'_keys[@]}'
+  fi
+  builtin eval -- "$dict"'_keys[ret]=$1'
+  builtin eval -- "$dict"'_vals[ret]=$2'
+  ((${dict}_lptrs[ret]=${dict}_rptrs[ret]=-1,${dict}_deps[ret]=1))
+}
+function ble/adict/.free {
+  ((${dict}_lptrs[$1]=${dict}_free,${dict}_free=$1))
+}
+
+function ble/adict/.depth {
+  local i=$1
+  if ((i < 0)); then
+    ret=0
+  else
+    ret=$((${dict}_deps[i]))
+  fi
+}
+function ble/adict/.depth.update {
+  local i=$1 ret
+  ble/adict/.depth "$((${dict}_lptrs[i]))"; local ldep=$ret
+  ble/adict/.depth "$((${dict}_rptrs[i]))"; local rdep=$ret
+  ((${dict}_deps[i]=(ldep>=rdep?ldep:rdep)+1))
+}
+## @fn ble/adict/.depth.ror i
+##   Rotate right as ((LL l LR) i R) → (LL l *(*LR i R))
+##   @var[out] ret - returns the new root.
+function ble/adict/.depth.ror {
+  local i=$1
+  local l=$((${dict}_lptrs[i]))
+  ((${dict}_lptrs[i]=${dict}_rptrs[l],${dict}_rptrs[l]=i))
+  ble/adict/.depth.update "$i"
+  ble/adict/.depth.update "$l"
+  ret=$l
+}
+## @fn ble/adict/.depth.ror i
+##   Rotate left as (L i (RL r RR)) → (*(L i *RL) r RR)
+##   @var[out] ret - returns the new root.
+function ble/adict/.depth.rol {
+  local i=$1
+  local r=$((${dict}_rptrs[i]))
+  ((${dict}_rptrs[i]=${dict}_lptrs[r],${dict}_lptrs[r]=i))
+  ble/adict/.depth.update "$i"
+  ble/adict/.depth.update "$r"
+  ret=$r
+}
+## @fn ble/adict/.path.rebalance i
+##   @param[in] i
+##     The axis of the rebalancing.
+##   @var[in] d path
+##     The current depth and the array of path.
+##   @exit 0 if the height of the present depth is unchanged, or otherwise 1.
+function ble/adict/.path.rebalance {
+  local i=$1 ret
+  local idep=$((${dict}_deps[i]))
+  local l=$((${dict}_lptrs[i])); ble/adict/.depth "$l"; local ldep=$ret
+  local r=$((${dict}_rptrs[i])); ble/adict/.depth "$r"; local rdep=$ret
+  if ((ldep >= rdep + 2)); then
+    ble/adict/.depth "$((${dict}_lptrs[l]))"; local lldep=$ret
+    ble/adict/.depth "$((${dict}_rptrs[l]))"; local lrdep=$ret
+    if ((lldep<lrdep)); then
+      ble/adict/.depth.rol "$l"
+      ((${dict}_lptrs[i]=ret))
     fi
+    ble/adict/.depth.ror "$i"
+  elif ((rdep >= ldep + 2)); then
+    ble/adict/.depth "$((${dict}_lptrs[r]))"; local rldep=$ret
+    ble/adict/.depth "$((${dict}_rptrs[r]))"; local rrdep=$ret
+    if ((rldep>rrdep)); then
+      ble/adict/.depth.ror "$r"
+      ((${dict}_rptrs[i]=ret))
+    fi
+    ble/adict/.depth.rol "$i"
+  else
+    ble/adict/.depth.update "$i"
+    ((${dict}_deps[i] == idep))
+    return "$?"
   fi
 
-  # filter out unset elements
-  local _ble_local_keys _ble_local_i _ble_local_ref=$1[_ble_local_i]
-  _ble_local_keys=("${ret[@]}") ret=()
-  for _ble_local_i in "${!_ble_local_keys[@]}"; do
-    [[ ${_ble_local_ref+set} ]] &&
-      ble/array#push ret "${_ble_local_keys[_ble_local_i]}"
+  ble/adict/.path.reconnect-parent "$ret"
+
+  ((${dict}_deps[ret] == idep))
+}
+
+function ble/adict/.path.reconnect-parent {
+  local i=$1
+  if ((d == 0)); then
+    ((${dict}_root=i))
+  elif local p=${path[d-1]}; ((${dict}_lptrs[p] == path[d])); then
+    ((${dict}_lptrs[p]=i))
+  else
+    ((${dict}_rptrs[p]=i))
+  fi
+}
+
+function ble/adict/.locate {
+  local i=$((${dict}_root)) kref=${dict}_keys[i]
+  while ((i >= 0)); do
+    local k=${!kref}
+    if [[ $1 == "$k" ]]; then
+      ret=$i
+      return 0
+    elif [[ $1 < "$k" ]]; then
+      i=$((${dict}_lptrs[i]))
+    else
+      i=$((${dict}_rptrs[i]))
+    fi
+  done
+  return 1
+}
+
+function ble/adict#get {
+  local dict=$1
+  ret=
+  ble/adict/.locate "$2" && ret=${dict}_vals[$ret] ret=${!ret}
+}
+
+function ble/adict#has {
+  local dict=$1 ret
+  ble/adict/.locate "$2"
+}
+
+function ble/adict#set {
+  local dict=$1
+  local ret i=$((${dict}_root))
+  if ((i < 0)); then
+    ble/adict/.alloc "$2" "$3"
+    ((${dict}_root=ret))
+    return 0
+  fi
+
+  local path d kref=${dict}_keys[i]
+  for ((d = 0; ; d++)); do
+    path[d]=$i
+    local b=$i k=${!kref}
+    if [[ $2 == "$k" ]]; then
+      builtin eval -- "$dict"'_vals[i]=$3'
+      return 0
+    elif [[ $2 < "$k" ]]; then
+      i=$((${dict}_lptrs[i]))
+      if ((i < 0)); then
+        ble/adict/.alloc "$2" "$3"
+        ((${dict}_lptrs[path[d]]=ret))
+        break
+      fi
+    else
+      i=$((${dict}_rptrs[i]))
+      if ((i < 0)); then
+        ble/adict/.alloc "$2" "$3"
+        ((${dict}_rptrs[path[d]]=ret))
+        break
+      fi
+    fi
+  done
+
+  while ((--d >= 0)); do
+    ble/adict/.path.rebalance "${path[d]}" && break
+  done
+}
+
+function ble/adict#unset {
+  local dict=$1 ret
+  local i=$((${dict}_root)) kref=${dict}_keys[i]
+  local d path target=
+  for ((d = 0; i >= 0; d++)); do
+    path[d]=$i
+    local b=$i k=${!kref}
+    if [[ $2 == "$k" ]]; then
+      target=$i
+
+      local l=$((${dict}_lptrs[i])); ble/adict/.depth "$l"; local ldep=$ret
+      local r=$((${dict}_rptrs[i])); ble/adict/.depth "$r"; local rdep=$ret
+      if ((ldep >= rdep)); then
+        i=$l
+      else
+        i=$r
+      fi
+    elif [[ $2 < "$k" ]]; then
+      i=$((${dict}_lptrs[i]))
+    else
+      i=$((${dict}_rptrs[i]))
+    fi
+  done
+
+  # If the target kvpair to remove is not found, we just return.
+  [[ $target ]] || return 1
+
+  # Move the deepest adjacent kvpair at the "i" cell to the "target" cell.
+  if ((target != (i = path[--d]))); then
+    builtin eval -- "$dict"'_keys[target]=${'"$dict"'_keys[i]}'
+    builtin eval -- "$dict"'_vals[target]=${'"$dict"'_vals[i]}'
+  fi
+
+  # Remove the "i" cell.  Note: since the loop stops when finding -1 on either
+  # lptrs or rptrs, there is only one child at most.  We reconnect the child to
+  # the parent.
+  if ((${dict}_lptrs[i] != -1)); then
+    ble/adict/.path.reconnect-parent "$((${dict}_lptrs[i]))"
+  else
+    ble/adict/.path.reconnect-parent "$((${dict}_rptrs[i]))"
+  fi
+  ble/adict/.free "$i"
+
+  # Rebalance and recalculate the depth
+  while ((--d >= 0)); do
+    ble/adict/.path.rebalance "${path[d]}" && break
+  done
+}
+
+## @fn ble/adict/.path.next
+##   @var[ref] path d
+##   @var[out] ret
+function ble/adict/.path.next {
+  local i=$((d == 0 ? ${dict}_root : ${dict}_rptrs[path[d >= 1 ? d - 1 : 0]]))
+  if ((i >= 0)); then
+    while ((path[d++] = i, (i = ${dict}_lptrs[i]) >= 0)); do
+      continue
+    done
+  else
+    while ((--d >= 1)) && ((${dict}_rptrs[path[d-1]] == path[d])); do
+      continue
+    done
+  fi
+  ((d >= 1)) || return 1
+  ret=${path[d-1]}
+}
+
+function ble/adict#keys {
+  local dict=$1
+  ret=()
+  local d=0 path i=0 kref=${dict}_keys[ret]
+  while ble/adict/.path.next; do
+    ret[i++]=${!kref}
   done
 }
 
@@ -1777,7 +1960,7 @@ if ((_ble_bash>=40000)); then
     function ble/dict#keys { builtin eval -- 'ret=("${!'"$1"'[@]}"); ret=("${ret[@]#x}")'; } # disable=#D2352
   fi
 else
-  _ble_util_dict_declare='declare NAME NAME_keylist='
+  _ble_util_dict_declare=$_ble_util_adict_declare
   function ble/dict#set   { ble/adict#set   "$@"; }
   function ble/dict#get   { ble/adict#get   "$@"; }
   function ble/dict#unset { ble/adict#unset "$@"; }
@@ -1795,10 +1978,10 @@ if ((_ble_bash>=40200)); then
   function ble/gdict#clear { ble/dict#clear "$@"; }
   function ble/gdict#keys  { ble/dict#keys  "$@"; }
 elif ((_ble_bash>=40000)); then
-  _ble_util_gdict_declare='{ if ! ble/is-assoc NAME; then if local _ble_local_test 2>/dev/null; then NAME_keylist=; else builtin unset -v NAME NAME_keylist; declare -A NAME; fi fi; NAME=(); }'
+  _ble_util_gdict_declare='{ builtin unset -v NAME_{keys,vals,lptrs,rptrs,deps,root,free}; if ble/is-assoc NAME || ! local _ble_local_test 2>/dev/null; then declare -A NAME; NAME=(); else ble/adict#clear NAME; fi; }'
   function ble/gdict#.is-adict {
-    local keylist=${1}_keylist
-    [[ ${!keylist+set} ]]
+    local ref=${1}_root
+    [[ ${!ref-} ]]
   }
   function ble/gdict#set   { if ble/gdict#.is-adict "$1"; then ble/adict#set   "$@"; else ble/dict#set   "$@"; fi; }
   function ble/gdict#get   { if ble/gdict#.is-adict "$1"; then ble/adict#get   "$@"; else ble/dict#get   "$@"; fi; }
@@ -1807,7 +1990,7 @@ elif ((_ble_bash>=40000)); then
   function ble/gdict#clear { if ble/gdict#.is-adict "$1"; then ble/adict#clear "$@"; else ble/dict#clear "$@"; fi; }
   function ble/gdict#keys  { if ble/gdict#.is-adict "$1"; then ble/adict#keys  "$@"; else ble/dict#keys  "$@"; fi; }
 else
-  _ble_util_gdict_declare='{ builtin unset -v NAME NAME_keylist; NAME_keylist= NAME=(); }'
+  _ble_util_gdict_declare='{ builtin unset -v NAME_{keys,vals,lptrs,rptrs,deps,root,free}; ble/adict#clear NAME; }'
   function ble/gdict#set   { ble/adict#set   "$@"; }
   function ble/gdict#get   { ble/adict#get   "$@"; }
   function ble/gdict#unset { ble/adict#unset "$@"; }

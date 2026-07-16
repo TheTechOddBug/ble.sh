@@ -8240,6 +8240,22 @@ bash_tips
     Done (実装ログ)
 -------------------------------------------------------------------------------
 
+2026-07-16
+
+  * util (ble/adict): re-implement by the AVL tree [#D2419]
+
+    #D2417 で従来の glob matching による ble/adict の実装は要素数が増えた時に滅
+    茶苦茶性能が悪くなることが分かった。これは bash の glob エンジン及び
+    ${var//pat} による実装が粗末な為である。特に、ble/adict は古い bash (bash
+    <= 3.2 もしくは bash <= 4.1) で使うものなので glob エンジンの向上も期待でき
+    ない。代わりに二分木で実装したところ十分な性能が得られることが分かったので
+    実装を置き換える事にする。
+
+    さらに新しくした ble/adict を用いて ble/color/alias/set や face を実装し直
+    す事を考えたが、ble/color/alias についてはそもそも沢山の alias を作ることは
+    想定していないということ。また face については速度が気になること・算術式評
+    価でアクセスできる様にしたいことから、現状の実装形態のままにする。
+
 2026-07-13
 
   * complete: describe command completions by man's apropos explanations (requested by alicealysia) [#D2418]

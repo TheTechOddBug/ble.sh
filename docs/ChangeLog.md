@@ -415,6 +415,7 @@
 - global: use `ble/opts#extract-last-optarg` `#D2363` 1cfd6c0a
 - global: use `source -- path` to source an arbitrary path `#D2366` 3d2e230a
 - main: describe `--lib` in the output of `ble.sh --help` `#D2367` 9699ff6a
+- util (`ble/adict`): re-implement by the AVL tree `#D2419` xxxxxxxx
 
 <!---------------------------------------------------------------------------->
 # ble-0.4.0-devel3

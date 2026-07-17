@@ -4356,7 +4356,7 @@ function ble/util/is-cygwin-slow-glob {
     ble/util/has-glob-pattern "$1"
 }
 
-## @fn ble/util/eval-pathname-expansion pattern
+## @fn ble/util/eval-pathname-expansion pattern opts
 ##   @var[out] ret
 function ble/util/eval-pathname-expansion {
   ret=()
@@ -4382,6 +4382,9 @@ function ble/util/eval-pathname-expansion {
     shopt -u failglob
     shopt -s nullglob
     shopt -s extglob
+    if [[ :$2: == *:dotglob:* ]]; then
+      shopt -s dotglob
+    fi
     set +f
     GLOBIGNORE=
   fi

@@ -7012,10 +7012,12 @@ function ble/exec/time/times.parse-time {
   return 0
 }
 function ble/exec/time/times.start {
+  >| "$_ble_base_run/$$.exec.time.start"
   builtin times >| "$_ble_exec_time_TIMES"
 }
 function ble/exec/time/times.end {
   builtin times >> "$_ble_exec_time_TIMES"
+  >| "$_ble_base_run/$$.exec.time.end"
   local times
   ble/util/readfile times "$_ble_exec_time_TIMES"
   ble/string#split-words times "$times"

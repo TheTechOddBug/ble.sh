@@ -329,6 +329,7 @@
 - contrib: add `readline` (motivated by thoughtsunificator) `#D2379` a985559a
 - contrib: add `alias-tips` (contributed by xuhdev) `#D2396` ac6c003f
 - integration/bash-completion: check cancellation in the post process of the dnf completion (reported by xuhdev) `#D2400` 801cc1c8
+- config: add `postexec-list-modified-files` `#D2421` xxxxxxxx
 
 ## Documentation
 
@@ -417,6 +418,7 @@
 - main: describe `--lib` in the output of `ble.sh --help` `#D2367` 9699ff6a
 - util (`ble/adict`): re-implement by the AVL tree `#D2419` xxxxxxxx
 - util: work around slow `${!var@}` with many variables `#D2420` xxxxxxxx
+- exec: record exec start/end times by file timestamps `#D2421` xxxxxxxx
 
 <!---------------------------------------------------------------------------->
 # ble-0.4.0-devel3

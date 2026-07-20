@@ -8241,6 +8241,21 @@ bash_tips
 
 2026-08-12
 
+  * make: work around gawk-5.4.1-nompfr bug (reported by tessus) [#D2424]
+    https://github.com/akinomyoga/ble.sh/issues/711
+
+    なんと gawk-5.4.1-nompfr (./configure --disable-mpfr) は未初期化の配列要素
+    に少しでも触ると 0 が代入されてしまう。
+
+      $ echo | gawk-5.4.1-nompfr '{print "<" a[0] ">"; print "<" a[0] ">"}'
+      <>
+      <0>
+
+    これは致命的なバグなので果たして既存のスクリプトを動くように workaround を
+    加えるのが可能かは分からないが、mwg_pp.awk に関しては少し修正したら、少なく
+    とも現在の ble.sh を build する上では問題なくなった。これで完全に直ったとは
+    なかなか思えないが取り敢えず現状で push する事にする。
+
   * import: ファイルが消滅するとロード済みでも ble/util/import/is-loaded が偽を返すようになる [#D2423]
 
     2026-07-20 syntax: mv out/lib/core-syntax.sh{,.bk} をするだけで着色がなくな

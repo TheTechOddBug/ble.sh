@@ -290,6 +290,7 @@
 - mandb: adjust man page parsing for `ffmpeg` (reported by SuggonM) `#D2411` f0087189
 - canvas: work around Cygwin 3.6.0 pcon bug `#D2412` bcea23c3
 - term: use the kitty keyboard protocol in Ghostty and Zellij (reported by Okeanos, allpan3) `#D2413` 6cffa910
+- make: work around gawk-5.4.1-nompfr bug (reported by tessus) `#D2424` xxxxxxxx
 
 ## Contrib
 

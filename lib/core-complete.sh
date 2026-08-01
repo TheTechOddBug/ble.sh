@@ -5922,7 +5922,9 @@ function ble/complete/mandb:help/generate-cache {
 
 ## @fn ble/complete/mandb/generate-cache cmdname [opts]
 ##   @param[in,opt] opts
-##     @opt man=MAN_PAGE
+##     @opt bin=PATH
+##       Specify the alternative path that can be used to check the existence
+##       of the command name.
 ##   @var[out] ret
 ##     キャッシュファイル名を返します。
 function ble/complete/mandb/generate-cache {
@@ -5971,7 +5973,22 @@ function ble/complete/mandb/generate-cache {
   local -a subcaches=()
   local subcache update=
   ble/complete/util/eval-pathname-expansion '"$mandb_cache_dir"/_parse_help.d/"$command".??????????????'
-  for subcache in "${ret[@]}" "$mandb_cache_dir"/{help,man}.d/"$command"; do
+  for subcache in "${ret[@]}"; do
+    if [[ -s $subcache && $subcache -nt $_ble_base/lib/core-complete.sh ]]; then
+      # Note: When there are multiple cache files with a hash, we select the
+      # latest version, expecting that integration/bash-completion has
+      # triggered the generation in the attempt of the completion.  There is
+      # technically a possibility that the present completion setting does not
+      # generate the cache, in which case the mandb cache for a different
+      # command may be picked, we currently do not care about such a situation.
+      if ((${#subcaches[@]} == 0)) || [[ $subcache -nt ${subcaches[0]} ]]; then
+        subcaches[0]=$subcache
+        [[ $fcache -nt $subcache ]] || update=1
+      fi
+    fi
+  done
+  # The caches triggered by ble.sh itself are always included.
+  for subcache in "$mandb_cache_dir"/{help,man}.d/"$command"; do
     if [[ -s $subcache && $subcache -nt $_ble_base/lib/core-complete.sh ]]; then
       ble/array#push subcaches "$subcache"
       [[ $fcache -nt $subcache ]] || update=1

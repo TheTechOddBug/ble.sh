@@ -206,6 +206,7 @@
 - syntax (completion-context): fix an infinite loop caused by nested braces (fixed by dlyongemallo) `#D2407` f38850cb
 - make: detect ./make_command.sh failure in `mwg_pp.awk` (reported by giggio, hibiday) `#D2415` 88266b9f
 - base: suppress error message in attempt at mkdir `$_ble_base/run` (reported by hibiday) `#D2414` 88266b9f 5d39ebe6
+- complete: use the latest `bash-completion` help/usage caceh (reported by dezza) `#D2422` xxxxxxxx
 
 ## Compatibility
 
@@ -330,6 +331,7 @@
 - contrib: add `alias-tips` (contributed by xuhdev) `#D2396` ac6c003f
 - integration/bash-completion: check cancellation in the post process of the dnf completion (reported by xuhdev) `#D2400` 801cc1c8
 - config: add `postexec-list-modified-files` `#D2421` xxxxxxxx
+- integration/bash-completion: fix the hash of mandb cache for `--help` (reported by dezza) `#D2422` xxxxxxxx
 
 ## Documentation
 

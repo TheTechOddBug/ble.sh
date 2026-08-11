@@ -207,6 +207,7 @@
 - make: detect ./make_command.sh failure in `mwg_pp.awk` (reported by giggio, hibiday) `#D2415` 88266b9f
 - base: suppress error message in attempt at mkdir `$_ble_base/run` (reported by hibiday) `#D2414` 88266b9f 5d39ebe6
 - complete: use the latest `bash-completion` help/usage caceh (reported by dezza) `#D2422` xxxxxxxx
+- import (`ble/util/import/is-loaded`): skip the file existence check for an absolute path `#D2423` xxxxxxxx
 
 ## Compatibility
 

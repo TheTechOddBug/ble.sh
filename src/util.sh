@@ -1568,6 +1568,47 @@ function ble/path#remove-glob {
 function ble/path#contains {
   builtin eval "[[ :\${$1}: == *:\"\$2\":* ]]"
 }
+function ble/path#canonicalize {
+  ret=$1
+
+  # Depending on the system, the beginning slashes may have a special meaning
+  # so the extra beginning slashes are kept in "prefix".
+  local prefix=
+  if [[ $ret == *[/:]/* ]]; then
+    local rex_prefix='/+'
+    [[ :$2: == *:scheme:* ]] && rex_prefix='/+|[a-zA-Z][-+.a-zA-Z0-9]*:/*'
+    if ble/string#match "$ret" '^('"$rex_prefix"')/'; then
+      prefix=${BASH_REMATCH[1]}
+      ret=${ret:${#prefix}}
+    fi
+  fi
+
+  [[ $ret == /* ]] || ret=$PWD/$ret
+
+  # Multiple consecutive slashes in the middle are reduced to a single slash.
+  if [[ $ret == *//* ]]; then
+    while ble/string#match "$ret" '/+(/.*)$'; do
+      ret=${ret:${#ret}-${#BASH_REMATCH}}${BASH_REMATCH[1]}
+    done
+  fi
+
+  # Process "."
+  if [[ $ret == */./* || $ret == */. ]]; then
+    while ble/string#match "$ret" '/\.(/.*)?$'; do
+      ret=${ret:${#ret}-${#BASH_REMATCH}}${BASH_REMATCH[1]}
+    done
+  fi
+
+  # Process ".."
+  if [[ $ret == */../* || $ret == */.. ]]; then
+    while ble/string#match "$ret" '(^|/[^/]+)/\.\.(/.*)?$'; do
+      ret=${ret:${#ret}-${#BASH_REMATCH}}${BASH_REMATCH[2]}
+    done
+  fi
+
+  [[ $ret ]] || ret=/
+  ret=$prefix$ret
+}
 
 ## @fn ble/opts#has opts key
 function ble/opts#has {
@@ -5868,8 +5909,10 @@ function ble/util/import/search {
   fi
   [[ -e $ret && ! -d $ret ]]
 }
+## @fn ble/util/import/encode-filename path
+##   @var[out] ret
 function ble/util/import/encode-filename {
-  ret=$1
+  ble/path#canonicalize "$1"
   local chars=%$'\t\n !"$&\'();<>\\^`|' # <emacs bug `>
   if [[ $ret == *["$chars"]* ]]; then
     local i n=${#chars} reps a b
@@ -5881,8 +5924,11 @@ function ble/util/import/encode-filename {
   return 0
 }
 function ble/util/import/is-loaded {
-  local ret
-  ble/util/import/search "$1" &&
+  local ret=$1
+  # If an absolute path or a path relative to the present working directory is
+  # specified, we use it regardless of the file's existence.  Otherwise, we try
+  # to resolve it using "ble/util/import/search".
+  { [[ $ret == /*  || $ret == ./* || $ret == ../* ]] || ble/util/import/search "$ret"; } &&
     ble/util/import/encode-filename "$ret" &&
     ble/is-function ble/util/import/guard:"$ret"
 }

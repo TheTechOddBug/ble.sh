@@ -602,6 +602,7 @@ function sub:scan/check-readonly-unsafe {
       /^\.\/src\/history.sh:[0-9]+:_history_index=$/d
       /^\.\/src\/util.sh:[0-9]+:(NAMEI|OPEN|TERM)=$/d
       /^\.\/src\/util.sh:[0-9]*:OSTYPE=$/d
+      /^\.\/src\/util.sh:[0-9]*:_root=$/d
       /^\.\/lib\/core-cmdspec.sh:[0-9]+:OLD=$/d
       /^\.\/contrib\/config\/readline.bash:[0-9]+:_abell=$/d
 

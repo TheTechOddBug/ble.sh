@@ -105,7 +105,7 @@ function ble/array#.heapify {
 ##   @param[in] predicate_less
 ##   @param[in] value
 function ble/heap#push {
-  local "${_ble_heap_vars[@]}"
+  local "${_ble_heap_vars[@]}" # disable=#D1566
   ble/heap#.initialize "$1" "$2"
   ble/heap#.push "$3"
 }
@@ -114,7 +114,7 @@ function ble/heap#push {
 ##   @param[in] name
 ##   @param[in] predicate_less
 function ble/heap#pop {
-  local "${_ble_heap_vars[@]}"
+  local "${_ble_heap_vars[@]}" # disable=#D1566
   ble/heap#.initialize "$1" "$2"
   ble/heap#.pop
 }
@@ -124,7 +124,7 @@ function ble/heap#pop {
 ##   @param[in] predicate_less
 ##   @param[in] value
 function ble/heap#replace-top {
-  local "${_ble_heap_vars[@]}"
+  local "${_ble_heap_vars[@]}" # disable=#D1566
   ble/heap#.initialize "$1" "$2"
   ble/heap#.replace 0 "$3"
 }
@@ -133,7 +133,7 @@ function ble/heap#replace-top {
 ##   @param[in] name
 ##   @param[in] predicate_less
 function ble/array#heapify {
-  local "${_ble_heap_vars[@]}"
+  local "${_ble_heap_vars[@]}" # disable=#D1566
   ble/heap#.initialize "$1" "$2"
   ble/array#.heapify
 }
@@ -142,7 +142,7 @@ function ble/array#heapify {
 ##   @param[in] name
 ##   @param[in] predicate_less
 function ble/array#is-heap {
-  local "${_ble_heap_vars[@]}"
+  local "${_ble_heap_vars[@]}" # disable=#D1566
   ble/heap#.initialize "$1" "$2"
   local __ble_i __ble_j
   for ((__ble_i = __ble_len / 2 - 1; __ble_i >= 0; __ble_i--)); do
@@ -202,7 +202,7 @@ function ble/array#.max {
 ##   @param[in] predicate_less
 ##   @param[in] count
 function ble/array#min {
-  local "${_ble_heap_vars[@]}"
+  local "${_ble_heap_vars[@]}" # disable=#D1566
   ble/heap#.initialize "$1" "$2" reverse
   ble/array#.max "${3:-1}"
 }
@@ -212,7 +212,7 @@ function ble/array#min {
 ##   @param[in] predicate_less
 ##   @param[in] count
 function ble/array#max {
-  local "${_ble_heap_vars[@]}"
+  local "${_ble_heap_vars[@]}" # disable=#D1566
   ble/heap#.initialize "$1" "$2"
   ble/array#.max "${3:-1}"
 }
@@ -250,7 +250,7 @@ function ble/array#.min.i2 {
 ##   @param[in] predicate_less
 ##   @param[in] count
 function ble/array#min.i2 {
-  local "${_ble_heap_vars[@]}"
+  local "${_ble_heap_vars[@]}" # disable=#D1566
   ble/heap#.initialize "$1" "$2"
   ble/array#.min.i2 "${3:-1}"
 }
@@ -260,7 +260,7 @@ function ble/array#min.i2 {
 ##   @param[in] predicate_less
 ##   @param[in] count
 function ble/array#max.i2 {
-  local "${_ble_heap_vars[@]}"
+  local "${_ble_heap_vars[@]}" # disable=#D1566
   ble/heap#.initialize "$1" "$2" reverse
   ble/array#.min.i2 "${3:-1}"
 }

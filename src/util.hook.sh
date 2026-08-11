@@ -116,7 +116,9 @@ function blehook/.read-arguments {
         local var_counter=_ble_hook_c_$name
         if [[ ! ${!var_counter+set} ]]; then
           if [[ ${BASH_REMATCH[2]} == :* ]]; then
+            builtin eval "_ble_hook_h_$name=()"
             (($var_counter=0))
+            ble/array#push _ble_hook_vars "_ble_hook_h_$name"
           else
             ble/util/print "blehook: hook \"$name\" is not defined." >&2
             flags=E$flags
@@ -159,7 +161,7 @@ function blehook/.read-arguments {
       local type=${BASH_REMATCH[3]}
       local value=${BASH_REMATCH[4]}
 
-      bleopt/expand-variable-pattern "_ble_hook_h_$pat"
+      bleopt/expand-variable-pattern "_ble_hook_h_$pat" '' _ble_hook_vars
       ble/array#filter ret ble/is-array
       [[ $pat == *[a-z]* || $flags == *a* ]] ||
         ble/array#remove-by-glob ret '_ble_hook_h_*[a-z]*'

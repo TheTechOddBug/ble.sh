@@ -53,7 +53,14 @@ function bleopt/expand-variable-pattern {
       builtin eval -- "ret=(\"\${!${pattern%%[@*?]*}@}\")"
     fi
     ble/array#filter-by-glob ret "${pattern//@/*}"
-  elif [[ ${!pattern+set} || :$opts: != :allow-undefined: ]]; then
+  elif
+    [[ :$opts: == :allow-undefined: ]] ||
+      if [[ ${3-} ]]; then
+        ble/array#contains "$3" "$pattern"
+      else
+        [[ ${!pattern+set} ]];
+      fi
+  then
     ret=("$pattern")
   fi
   ((${#ret[@]}))
@@ -261,7 +268,14 @@ function bleopt {
         fi
       fi
 
-      [[ ${!var+set} && ${!var} == "$value" ]] && continue
+      if [[ ! ${!var+set} ]]; then
+        # For the option that is newly created by ":=", we need to register it
+        # to "_ble_opt_defs" and "_ble_opt_vars"
+        ble/gdict#set _ble_opt_defs "${var#bleopt_}" "$value"
+        ble/array#push _ble_opt_vars "$var"
+      elif [[ ${!var} == "$value" ]]; then
+        continue
+      fi
       if ble/is-function bleopt/check:"${var#bleopt_}"; then
         local bleopt_source=${BASH_SOURCE[1]}
         local bleopt_lineno=${BASH_LINENO[0]}

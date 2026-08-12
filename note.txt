@@ -1928,14 +1928,6 @@ bash_tips
 
 2026-07-16
 
-  * bash: "${!var@}" が遅い理由?
-    Ref #D2420
-
-    そもそも何故そんなに時間がかかるのだろうか? 最適化できるのではないだろうか?
-    単に bucket scan して全部比較するだけではないのだろうか? 或いは、空bucket
-    が沢山ある? もしくは変数は hash table で管理されている訳ではない?  或いは
-    sort してから filter しているとか。。。
-
   * menu-complete: 何故か tab で末尾まで移動すると先頭に戻ってきてしまう。これはバグでは。
 
   x bash-4.0 のコマンド実行で TIMEFORMAT が leak している。何故?
@@ -2000,12 +1992,10 @@ bash_tips
 
   * bash54: rlfunc shell-expand-and-requote-line これは昔に提案した物だ。
 
-  * bash54: ${; cmd; } が追加されている!
-
   * bash54(2/5): tilde expansion で ~: が $HOME: になるのは assignment の中だけ
     に変更になった?
 
-    669b32f6 までチェックした。
+    9c8a70bc までチェックした。
 
 2026-03-22
 
@@ -8239,6 +8229,12 @@ bash_tips
     Done (実装ログ)
 -------------------------------------------------------------------------------
 
+2026-08-13
+
+  * bash54: ${; cmd; } が追加されている! [#D2425]
+
+    対応した。これは単に ${| の亜種として追加するだけだったので物凄く単純だった。
+
 2026-08-12
 
   * make: work around gawk-5.4.1-nompfr bug (reported by tessus) [#D2424]
@@ -8294,7 +8290,7 @@ bash_tips
 
 2026-08-01
 
-  * mandb: キャッシュされた別の ./configure のオプションが表示される [#D2422]
+  * mandb: キャッシュされた別の ./configure のオプションが表示される (reported by dezza) [#D2422]
     https://github.com/akinomyoga/ble.sh/issues/714
 
     元々 hash で異なる呼び出し方をした _parse_help を区別できる様にしていたつも

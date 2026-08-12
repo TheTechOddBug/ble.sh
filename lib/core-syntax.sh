@@ -2182,11 +2182,11 @@ function ble/syntax:bash/check-dollar {
         ((_ble_syntax_attr[i++]=CTX_EXPR))
       fi
       return 0
-    elif ((_ble_bash>=50300)) && [[ $tail == '${'[$' \t\n|']* ]]; then
+    elif [[ _ble_bash -ge 50300 && $tail == '${'[$' \t\n|']* || _ble_bash -ge 50400 && $tail == '${;'* ]];then
       ((_ble_syntax_attr[i]=CTX_PARAM))
       ble/syntax/parse/nest-push "$CTX_CMDX" 'cmdsub_nofork'
       ((i+=2))
-      [[ $tail == '${|'* ]] && ((i++))
+      [[ $tail == '${'['|;']* ]] && ((i++))
       return 0
     else
       ((_ble_syntax_attr[i]=ATTR_ERR,i+=2))

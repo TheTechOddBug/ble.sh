@@ -24,6 +24,8 @@
   - keymap/vi: support bash-5.3 readline bindable function `bash-vi-complete` in `vi_nmap` `#D2305` 55e0ee71
   - syntax: parse function name as a word `#D2360` 72364a51
   - util (`ble/builtin/trap/invoke.sandbox`): set `BASH_TRAPSIG` `#D2364` 858630e5
+- Bash 5.4 support
+  - syntax: support bash-5.4 `${; cmd; }` `#D2325` xxxxxxxx
 - bgproc: support opts `kill9-timeout=TIMEOUT` `#D2034` 3ab41652
 - progcomp(cd): change display name and support mandb desc (requested by EmilySeville7cfg) `#D2039` 74402098
 - cmdspec: add completion options for builtins (motivated by EmilySeville7cfg) `#D2040` 9bd24691
@@ -94,7 +96,7 @@
 - util (`bleopt`, etc.): highlight shell quoting by backslash `#D2388` 7cf13879
 - complete: introduce more stages to ambiguous pathname completions (reported by xuhdev) `#D2397` abb93e21
 - color: support color aliases `#D2416` d69e4d54
-- complete: support `bleopt complete_source_command_opts=apropos` (requested by alicealysia) `#D2418` xxxxxxxx
+- complete: support `bleopt complete_source_command_opts=apropos` (requested by alicealysia) `#D2418` 40f50e3e
 
 ## Changes
 
@@ -206,8 +208,8 @@
 - syntax (completion-context): fix an infinite loop caused by nested braces (fixed by dlyongemallo) `#D2407` f38850cb
 - make: detect ./make_command.sh failure in `mwg_pp.awk` (reported by giggio, hibiday) `#D2415` 88266b9f
 - base: suppress error message in attempt at mkdir `$_ble_base/run` (reported by hibiday) `#D2414` 88266b9f 5d39ebe6
-- complete: use the latest `bash-completion` help/usage caceh (reported by dezza) `#D2422` xxxxxxxx
-- import (`ble/util/import/is-loaded`): skip the file existence check for an absolute path `#D2423` xxxxxxxx
+- complete: use the latest `bash-completion` help/usage caceh (reported by dezza) `#D2422` d62098c8
+- import (`ble/util/import/is-loaded`): skip the file existence check for an absolute path `#D2423` d8ad40e7
 
 ## Compatibility
 
@@ -290,7 +292,7 @@
 - mandb: adjust man page parsing for `ffmpeg` (reported by SuggonM) `#D2411` f0087189
 - canvas: work around Cygwin 3.6.0 pcon bug `#D2412` bcea23c3
 - term: use the kitty keyboard protocol in Ghostty and Zellij (reported by Okeanos, allpan3) `#D2413` 6cffa910
-- make: work around gawk-5.4.1-nompfr bug (reported by tessus) `#D2424` xxxxxxxx
+- make: work around gawk-5.4.1-nompfr bug (reported by tessus) `#D2424` f4261e4e
 
 ## Contrib
 
@@ -332,8 +334,8 @@
 - contrib: add `readline` (motivated by thoughtsunificator) `#D2379` a985559a
 - contrib: add `alias-tips` (contributed by xuhdev) `#D2396` ac6c003f
 - integration/bash-completion: check cancellation in the post process of the dnf completion (reported by xuhdev) `#D2400` 801cc1c8
-- config: add `postexec-list-modified-files` `#D2421` xxxxxxxx
-- integration/bash-completion: fix the hash of mandb cache for `--help` (reported by dezza) `#D2422` xxxxxxxx
+- config: add `postexec-list-modified-files` `#D2421` dc8ca316
+- integration/bash-completion: fix the hash of mandb cache for `--help` (reported by dezza) `#D2422` d62098c8
 
 ## Documentation
 
@@ -420,9 +422,9 @@
 - global: use `ble/opts#extract-last-optarg` `#D2363` 1cfd6c0a
 - global: use `source -- path` to source an arbitrary path `#D2366` 3d2e230a
 - main: describe `--lib` in the output of `ble.sh --help` `#D2367` 9699ff6a
-- util (`ble/adict`): re-implement by the AVL tree `#D2419` xxxxxxxx
-- util: work around slow `${!var@}` with many variables `#D2420` xxxxxxxx
-- exec: record exec start/end times by file timestamps `#D2421` xxxxxxxx
+- util (`ble/adict`): re-implement by the AVL tree `#D2419` 88314e2c
+- util: work around slow `${!var@}` with many variables `#D2420` 3dce1c53
+- exec: record exec start/end times by file timestamps `#D2421` dc8ca316
 
 <!---------------------------------------------------------------------------->
 # ble-0.4.0-devel3

@@ -1589,34 +1589,34 @@ function ble/path#canonicalize {
   # so the extra beginning slashes are kept in "prefix".
   local prefix=
   if [[ $ret == *[/:]/* ]]; then
-    local rex_prefix='/+'
-    [[ :$2: == *:scheme:* ]] && rex_prefix='/+|[a-zA-Z][-+.a-zA-Z0-9]*:/*'
+    local rex_prefix='/+|[a-zA-Z]:'
+    [[ :$2: == *:scheme:* ]] && rex_prefix='/+|[a-zA-Z]:|[a-zA-Z][-+.a-zA-Z0-9]+:/*'
     if ble/string#match "$ret" '^('"$rex_prefix"')/'; then
       prefix=${BASH_REMATCH[1]}
       ret=${ret:${#prefix}}
     fi
   fi
 
-  [[ $ret == /* ]] || ret=$PWD/$ret
+  [[ $ret == /* ]] || ret=$PWD${ret:+/$ret}
 
   # Multiple consecutive slashes in the middle are reduced to a single slash.
   if [[ $ret == *//* ]]; then
     while ble/string#match "$ret" '/+(/.*)$'; do
-      ret=${ret:${#ret}-${#BASH_REMATCH}}${BASH_REMATCH[1]}
+      ret=${ret::${#ret}-${#BASH_REMATCH}}${BASH_REMATCH[1]}
     done
   fi
 
   # Process "."
   if [[ $ret == */./* || $ret == */. ]]; then
     while ble/string#match "$ret" '/\.(/.*)?$'; do
-      ret=${ret:${#ret}-${#BASH_REMATCH}}${BASH_REMATCH[1]}
+      ret=${ret::${#ret}-${#BASH_REMATCH}}${BASH_REMATCH[1]}
     done
   fi
 
   # Process ".."
   if [[ $ret == */../* || $ret == */.. ]]; then
     while ble/string#match "$ret" '(^|/[^/]+)/\.\.(/.*)?$'; do
-      ret=${ret:${#ret}-${#BASH_REMATCH}}${BASH_REMATCH[2]}
+      ret=${ret::${#ret}-${#BASH_REMATCH}}${BASH_REMATCH[2]}
     done
   fi
 

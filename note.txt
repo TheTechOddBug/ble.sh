@@ -8229,6 +8229,13 @@ bash_tips
     Done (実装ログ)
 -------------------------------------------------------------------------------
 
+2026-08-19
+
+  * util (path#canonicalize): 無限ループになる (reported by chill-nemesis) [#D2426]
+    https://github.com/akinomyoga/ble.sh/issues/716
+
+    そもそも全然テストしていなかった。テストを追加した。
+
 2026-08-13
 
   * bash54: ${; cmd; } が追加されている! [#D2425]

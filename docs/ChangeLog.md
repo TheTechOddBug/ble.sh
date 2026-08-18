@@ -210,6 +210,7 @@
 - base: suppress error message in attempt at mkdir `$_ble_base/run` (reported by hibiday) `#D2414` 88266b9f 5d39ebe6
 - complete: use the latest `bash-completion` help/usage caceh (reported by dezza) `#D2422` d62098c8
 - import (`ble/util/import/is-loaded`): skip the file existence check for an absolute path `#D2423` d8ad40e7
+  - util (`ble/path#canonicalize`): fix infinite loops (fixup d8ad40e7) (reported by chill-nemesis) `#D2426` xxxxxxxx
 
 ## Compatibility
 

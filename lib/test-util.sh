@@ -2,7 +2,7 @@
 
 ble-import lib/core-test
 
-ble/test/start-section 'ble/util' 1278
+ble/test/start-section 'ble/util' 1331
 
 # bleopt
 
@@ -1011,6 +1011,72 @@ function is-global { (builtin readonly "$1"; ! local "$1" 2>/dev/null); }
   ble/test code:'ret=xyz; ble/path#contains ret xyz'
   ble/test code:'ret=xyz; ! ble/path#contains ret xyz:xyz'
   ble/test code:'ret=xyz; ! ble/path#contains ret "???"'
+)
+
+# ble/path#canonicalize
+(
+  ble/test code:'ble/path#canonicalize /a/b/c     ' ret:'/a/b/c'
+  ble/test code:'ble/path#canonicalize /          ' ret:'/'
+  ble/test code:'ble/path#canonicalize /a//b      ' ret:'/a/b'
+  ble/test code:'ble/path#canonicalize /a///b////c' ret:'/a/b/c'
+  ble/test code:'ble/path#canonicalize /a/./b     ' ret:'/a/b'
+  ble/test code:'ble/path#canonicalize /a/b/.     ' ret:'/a/b'
+  ble/test code:'ble/path#canonicalize /.         ' ret:'/'
+  ble/test code:'ble/path#canonicalize /a/b/../c  ' ret:'/a/c'
+  ble/test code:'ble/path#canonicalize /a/b/..    ' ret:'/a'
+  ble/test code:'ble/path#canonicalize /a/../../b ' ret:'/b'
+  ble/test code:'ble/path#canonicalize /..        ' ret:'/'
+  ble/test code:'ble/path#canonicalize https://foo/bar        scheme' ret:'https://foo/bar'
+  ble/test code:'ble/path#canonicalize https://foo/bar/../baz scheme' ret:'https://foo/baz'
+  ble/test code:'ble/path#canonicalize https://foo/../../bar  scheme' ret:'https://bar'
+  ble/test code:'ble/path#canonicalize https://../../bar      scheme' ret:'https://bar'
+  ble/test code:'ble/path#canonicalize https://foo            scheme' ret:'https://foo'
+  ble/test code:'ble/path#canonicalize http://localhost       scheme' ret:'http://localhost'
+  ble/test code:'ble/path#canonicalize https://foo/..         scheme' ret:'https://'
+  ble/test code:'ble/path#canonicalize https://foo/.          scheme' ret:'https://foo'
+  ble/test code:'ble/path#canonicalize https://foo/././bar    scheme' ret:'https://foo/bar'
+  ble/test code:'ble/path#canonicalize https://foo/bar/../../ scheme' ret:'https://'
+  ble/test code:'ble/path#canonicalize https://foo/../../bar  scheme' ret:'https://bar'
+
+  ble/test code:'ble/path#canonicalize file:///home/user/.dotfiles/../.bashrc scheme' ret:'file:///home/user/.bashrc'
+  ble/test code:'ble/path#canonicalize file:///a/b/../c                       scheme' ret:'file:///a/c'
+  ble/test code:'ble/path#canonicalize file://hostname/a/./b                  scheme' ret:'file://hostname/a/b'
+
+  ble/test code:'ble/path#canonicalize C:/cygwin64/home/user/../other       ' ret:'C:/cygwin64/home/other'
+  ble/test code:'ble/path#canonicalize C://foo//bar                         ' ret:'C:/foo/bar'
+  ble/test code:'ble/path#canonicalize A:/foo/../bar                        ' ret:'A:/bar'
+  ble/test code:'ble/path#canonicalize B://foo//bar                         ' ret:'B:/foo/bar'
+  ble/test code:'ble/path#canonicalize d/C:/e                               ' ret:"${PWD%/}/d/C:/e"
+  ble/test code:'ble/path#canonicalize C:/foo/bar/..                  scheme' ret:'C:/foo'
+  ble/test code:'ble/path#canonicalize C://foo//bar                   scheme' ret:'C:/foo/bar'
+  ble/test code:'ble/path#canonicalize //a/b/..                             ' ret:'//a'
+  ble/test code:'ble/path#canonicalize ///a/b/..                            ' ret:'///a'
+
+  ble/test code:'ble/path#canonicalize ""' ret:"${PWD%/}"
+  ble/test code:'ble/path#canonicalize .' ret:"${PWD%/}"
+  ble/test code:'ble/path#canonicalize ./.' ret:"${PWD%/}"
+
+  ble/test code:'PWD=/a/b/c ble/path#canonicalize ""'           ret:'/a/b/c'
+  ble/test code:'PWD=/a/b/c ble/path#canonicalize .'            ret:'/a/b/c'
+  ble/test code:'PWD=/a/b/c ble/path#canonicalize ..'           ret:'/a/b'
+  ble/test code:'PWD=/a/b/c ble/path#canonicalize d/e'          ret:'/a/b/c/d/e'
+  ble/test code:'PWD=/a/b/c ble/path#canonicalize ../../d/.'    ret:'/a/d'
+  ble/test code:'PWD=/a/b/c ble/path#canonicalize ./.././../.'  ret:'/a'
+  ble/test code:'PWD=/a/b/c ble/path#canonicalize ../../../..'  ret:'/'
+
+  ble/test code:'PWD=/      ble/path#canonicalize ""'           ret:'/'
+  ble/test code:'PWD=/      ble/path#canonicalize .'            ret:'/'
+  ble/test code:'PWD=/      ble/path#canonicalize ..'           ret:'/'
+  ble/test code:'PWD=/      ble/path#canonicalize a'            ret:'/a'
+  ble/test code:'PWD=/      ble/path#canonicalize ../..'        ret:'/'
+  ble/test code:'PWD=/      ble/path#canonicalize ../a/../b'    ret:'/b'
+
+  ble/test code:'PWD=/a/b/c/ ble/path#canonicalize ..'          ret:'/a/b'
+  ble/test code:'PWD=/a/b/c/ ble/path#canonicalize d'           ret:'/a/b/c/d'
+
+  # reported case https://github.com/akinomyoga/ble.sh/issues/716
+  ble/test code:'ble/path#canonicalize /mypath/temp1/temp2/../../ble-install/share/blesh/lib/keymap.emacs.sh' \
+           ret:'/mypath/ble-install/share/blesh/lib/keymap.emacs.sh'
 )
 
 # ToDo

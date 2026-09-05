@@ -8229,6 +8229,54 @@ bash_tips
     Done (実装ログ)
 -------------------------------------------------------------------------------
 
+2026-09-05
+
+  * decode: ghostty で kitty_keyboard_protocol の文字が正しく変換されない (reported by dfherr) [#D2427]
+    https://github.com/akinomyoga/ble.sh/issues/720
+    Ref #D2413
+
+    decode.sh で kitty keyboard protocol の特別 key の翻訳を、現在の端末が
+    kitty の時にしか行っていなかった。今 #D2413 で ghostty 及び zellij でも
+    kitty keyboard protocol を有効にしたので、これらの端末でも翻訳しなければな
+    らない。条件が複雑化したので ble/decode/csi/.translate-kitty-csi-u 本体の中
+    で条件判定を行って early return する事にした。
+
+    もう一つの問題は何回か term_modifyOtherKeys_internal と
+    term_modifyOtherKeys_external を実行するとterm_modifyOtherKeys_internal= に
+    しても kitty keyboard protocol が off されなくなってしまうという事。何故?
+    具体的に何が起こっているのかについて調べる必要がある? どのターミナルで?
+
+    取り敢えず送信部分の振る舞いを見た。この時点で変である。つまり、kitty 側の
+    push/pop の追跡に失敗した訳ではなくて普通に間違っている。
+
+      kitty_keyboard_protocol(mode [1] -> [2]): $'\E[>1u'    # 起動時
+      kitty_keyboard_protocol(mode [2] -> [1]): $'\E[<u'     # internal=
+      kitty_keyboard_protocol(mode [1] -> []):  ''
+      kitty_keyboard_protocol(mode [1] -> []):  ''           # external=
+      kitty_keyboard_protocol(mode [] -> [2]):  $'\E[>1u'    # internal=auto
+      kitty_keyboard_protocol(mode [2] -> []):  ''           # internal=
+
+    と思って実装を見たらどうも push/pop の数を数えている訳ではなくて、push/pop
+    で多段積み上げないように ble.sh の側で既に push されていたら push しないと
+    かそういう管理をして、既に期待する状態になっている時には改めて seq を送らな
+    いという仕組みにしている様だ。空文字列は既に期待する状態になっていた時に出
+    力を省略した時に現れる様だ。
+
+    mode 変化も追加で出力する様にした。一つ気になるのは一旦空文字列 [] になって
+    いるのにその後でいつの間にかに [1] に再びなっているという事。何故? というか
+    そもそも state に空文字列が送られている事は想定されていないように見える。ど
+    ういう事だろうか。呼び出し元を確認する必要がある。うーん。空文字列になるこ
+    と自体は問題ない気がする。これは未だ一回も seq を送出したことがない時に出力
+    をスキップする為に存在している様な気がする。しかしながら一方で、一度状態が
+    2, 1 などと変遷を経た後で空文字列になっているのは変だ。
+
+    と思ったがこれを送出しているのは term_modifyOtherKeys_{internal,external}
+    であって、更に manual にはこれらに空文字列を指定した場合には何も変化させず
+    にそのままにしておくという意味である。なのでこれは期待通りの振る舞いである。
+
+    因みに wiki の設定の種別の名称が Empty/Non-empty になっているがこれは間違っ
+    ている。
+
 2026-08-19
 
   * util (path#canonicalize): 無限ループになる (reported by chill-nemesis) [#D2426]

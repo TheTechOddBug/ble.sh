@@ -25,7 +25,7 @@
   - syntax: parse function name as a word `#D2360` 72364a51
   - util (`ble/builtin/trap/invoke.sandbox`): set `BASH_TRAPSIG` `#D2364` 858630e5
 - Bash 5.4 support
-  - syntax: support bash-5.4 `${; cmd; }` `#D2325` xxxxxxxx
+  - syntax: support bash-5.4 `${; cmd; }` `#D2325` cc0be245
 - bgproc: support opts `kill9-timeout=TIMEOUT` `#D2034` 3ab41652
 - progcomp(cd): change display name and support mandb desc (requested by EmilySeville7cfg) `#D2039` 74402098
 - cmdspec: add completion options for builtins (motivated by EmilySeville7cfg) `#D2040` 9bd24691
@@ -210,7 +210,7 @@
 - base: suppress error message in attempt at mkdir `$_ble_base/run` (reported by hibiday) `#D2414` 88266b9f 5d39ebe6
 - complete: use the latest `bash-completion` help/usage caceh (reported by dezza) `#D2422` d62098c8
 - import (`ble/util/import/is-loaded`): skip the file existence check for an absolute path `#D2423` d8ad40e7
-  - util (`ble/path#canonicalize`): fix infinite loops (fixup d8ad40e7) (reported by chill-nemesis) `#D2426` xxxxxxxx
+  - util (`ble/path#canonicalize`): fix infinite loops (fixup d8ad40e7) (reported by chill-nemesis) `#D2426` 63c23e99
 
 ## Compatibility
 
@@ -293,6 +293,7 @@
 - mandb: adjust man page parsing for `ffmpeg` (reported by SuggonM) `#D2411` f0087189
 - canvas: work around Cygwin 3.6.0 pcon bug `#D2412` bcea23c3
 - term: use the kitty keyboard protocol in Ghostty and Zellij (reported by Okeanos, allpan3) `#D2413` 6cffa910
+  - decode: fix incomplete support of the kitty-keyboard-protocol support in Ghostty and Zellij (reported by dfherr) `#D2427` xxxxxxx
 - make: work around gawk-5.4.1-nompfr bug (reported by tessus) `#D2424` f4261e4e
 
 ## Contrib

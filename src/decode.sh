@@ -827,6 +827,18 @@ _ble_decode_csimap_kitty_u=()
 ## @fn ble/decode/csi/.translate-kitty-csi-u
 ##   @var[in,out] key
 function ble/decode/csi/.translate-kitty-csi-u {
+  # We perform the translation only when kitty keyboard protocol is used.
+  # kitty keyboard protocol sends special keys as a Unicode character in
+  # Private Use Area (PUA) of Unicode, which can clashes with the user or the
+  # terminal's other uses of private characters.  We want to perform the
+  # translation only when ble.sh turns on kitty keyboard protocol, but we
+  # actually need to check the present terminal because the terminal's keyboard
+  # protocol and ble.sh's keyboard protocol are not necessarily synchronized
+  # due to TTY buffering and network delays.
+  [[ $_ble_term_modifyOtherKeys_current_method == kitty_keyboard_protocol ]] ||
+    case $_ble_term_TERM in (kitty:*|ghostty:*|zellij:*) true ;; (*) false ;; esac ||
+    return 0
+
   local name=${_ble_decode_csimap_kitty_u[key]}
   if [[ $name ]]; then
     local ret
@@ -892,7 +904,7 @@ function ble/decode/csi/.decode {
       local rematch1=${BASH_REMATCH[1]}
       if [[ $rematch1 != 1 ]]; then
         local key=$((10#0$rematch1)) mods=$((10#0${BASH_REMATCH:${#rematch1}+1}))
-        [[ $_ble_term_TERM == kitty:* ]] && ble/decode/csi/.translate-kitty-csi-u
+        ble/decode/csi/.translate-kitty-csi-u
         ble/decode/csi/.modify-key "$mods"
         csistat=$key
       fi

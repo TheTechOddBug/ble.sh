@@ -493,14 +493,14 @@ function ble/init:cmap/initialize-keys {
   builtin unset -f "$FUNCNAME"
 }
 
-## @fn ble/init:cmap/initialize-keys
+## @fn ble/init:cmap/initialize
 ##   @var[in] dump
 ##     The filename to write the cache
 function ble/init:cmap/initialize {
   ble/edit/info/immediate-show text 'ble.sh: generating "'"$dump"'"...'
   ble/init:cmap/initialize-kbd
   ble/init:cmap/initialize-keys
-#%$ echo "  local hash='$(./make_command.sh hash lib/init-cmap.sh)'"
+#%$ hash=$(bash ./make_command.sh hash lib/init-cmap.sh) && [ -n "$hash" ] && echo "  local hash='$hash'"
   ble-bind -D | ble/bin/awk -v hash="$hash" '
     {
       sub(/^declare +(-[aAilucnrtxfFgGI]+ +)?/, "");

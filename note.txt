@@ -8231,6 +8231,14 @@ bash_tips
 
 2026-09-05
 
+  * decode: /usr/bin/env がない環境で lib/init-bind.sh の hash 計算に失敗している (reported by kingfirewxm) [#D2428]
+    https://github.com/akinomyoga/ble.sh/issues/718
+    Ref #D2415
+
+    これは丁度 #D2415 で lib/init-cmap.sh に対して修正したところである。報告を
+    信じていたが調べたら似たような物が他にも沢山あった。これらを修正するべきで
+    ある。適当な報告を信じるべきではないのである。
+
   * decode: ghostty で kitty_keyboard_protocol の文字が正しく変換されない (reported by dfherr) [#D2427]
     https://github.com/akinomyoga/ble.sh/issues/720
     Ref #D2413

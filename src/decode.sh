@@ -2847,6 +2847,7 @@ function ble/decode/cmap/initialize {
   local dump=$_ble_base_cache/decode.cmap.$_ble_decode_kbd_ver.$TERM.dump
 #%$ hash=$(bash ./make_command.sh hash lib/init-cmap.sh) && [ -n "$hash" ] && echo "  local hash='$hash'"
   if [[ -s $dump && $dump -nt $init ]]; then
+    local _ble_decode_cmap_cache_hash=__uninitialized__
     source -- "$dump"
     [[ $_ble_decode_cmap_cache_hash == "$hash" ]] && return 0
   fi
@@ -3104,8 +3105,8 @@ function ble/decode/readline/bind {
   #
   ble/term/rl-convert-meta/enter
 
-#%$ echo "  local hash='$(./make_command.sh hash lib/init-bind.sh)'"
-  local _ble_decode_bind_cache_hash=
+#%$ hash=$(bash ./make_command.sh hash lib/init-bind.sh) && [ -n "$hash" ] && echo "  local hash='$hash'"
+  local _ble_decode_bind_cache_hash=__uninitialized__
   [[ -s $file && $file -nt $_ble_base/lib/init-bind.sh ]] && source -- "$file"
 
   if [[ $_ble_decode_bind_cache_hash != "$hash" ]]; then

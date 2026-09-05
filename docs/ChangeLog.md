@@ -206,7 +206,8 @@
 - util (`ble/function#advice`): fix `-f` doing the opposite (reported by Funeralsawa) `#D2401` 801cc1c8
 - make: fix a race condition (reported by sanvila) `#2406` c92dddbe
 - syntax (completion-context): fix an infinite loop caused by nested braces (fixed by dlyongemallo) `#D2407` f38850cb
-- make: detect ./make_command.sh failure in `mwg_pp.awk` (reported by giggio, hibiday) `#D2415` 88266b9f
+- make: detect `./make_command.sh` failure in `mwg_pp.awk` (reported by giggio, hibiday) `#D2415` 88266b9f
+  - make: check all `./make_command.sh` failures in `mwg_pp.awk` (reported by kingfirewxm) `#D2428` xxxxxxxx
 - base: suppress error message in attempt at mkdir `$_ble_base/run` (reported by hibiday) `#D2414` 88266b9f 5d39ebe6
 - complete: use the latest `bash-completion` help/usage caceh (reported by dezza) `#D2422` d62098c8
 - import (`ble/util/import/is-loaded`): skip the file existence check for an absolute path `#D2423` d8ad40e7
@@ -293,7 +294,7 @@
 - mandb: adjust man page parsing for `ffmpeg` (reported by SuggonM) `#D2411` f0087189
 - canvas: work around Cygwin 3.6.0 pcon bug `#D2412` bcea23c3
 - term: use the kitty keyboard protocol in Ghostty and Zellij (reported by Okeanos, allpan3) `#D2413` 6cffa910
-  - decode: fix incomplete support of the kitty-keyboard-protocol support in Ghostty and Zellij (reported by dfherr) `#D2427` xxxxxxx
+  - decode: fix incomplete support of the kitty-keyboard-protocol support in Ghostty and Zellij (reported by dfherr) `#D2427` 9b63b11a
 - make: work around gawk-5.4.1-nompfr bug (reported by tessus) `#D2424` f4261e4e
 
 ## Contrib

@@ -200,7 +200,7 @@ function ble/init:bind/.generate {
 
   ble/function#try ble/encoding:"$bleopt_input_encoding"/generate-binder
 
-#%$ echo "  local hash='$(./make_command.sh hash lib/init-bind.sh)'"
+#%$ hash=$(bash ./make_command.sh hash lib/init-bind.sh) && [ -n "$hash" ] && echo "  local hash='$hash'"
   ble/util/print "_ble_decode_bind_cache_hash='$hash'" >&3
 }
 
